@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rain Surge Dashboard — Live Preview</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root, :root[data-theme="dark"] {
+  --bg: #0F1720; --panel: #16212C; --panel-2: #1C2A38; --border: #263544;
+  --text: #E7EDF3; --text-muted: #8FA0B3; --accent: #2FB8A6; --accent-2: #4C8DFF;
+  --warn: #E3A438; --danger: #E4574C; --radius: 14px;
+}
+:root[data-theme="light"] {
+  --bg: #F3F6F9; --panel: #FFFFFF; --panel-2: #F1F4F8; --border: #DCE4EC;
+  --text: #17222E; --text-muted: #5C6C7C; --accent: #128577; --accent-2: #2F6FED;
+  --warn: #A66206; --danger: #C0392B; --radius: 14px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg);
+  color: var(--text); font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+  transition: background .2s, color .2s;
+}
+[data-theme="dark"] body { background: radial-gradient(1200px 600px at 10% -10%, #16222E 0%, var(--bg) 55%); }
+.banner {
+  background: linear-gradient(90deg,#1c2a38,#22364a); border-bottom: 1px solid var(--border);
+  padding: .65rem 1.25rem; font-size: .83rem; color: #FFDDA6; display:flex; gap:.5rem; align-items:center;
+}
+[data-theme="light"] .banner { background: linear-gradient(90deg,#FFF3E0,#FFEAD1); color: #7A4A00; }
+.banner b { color: inherit; }
+.navbar {
+  background: linear-gradient(90deg, #0E1A24, #14232F); border-bottom: 1px solid var(--border);
+  padding: .8rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .6rem;
+}
+[data-theme="light"] .navbar { background: linear-gradient(90deg, #FFFFFF, #F3F6F9); }
+.brand { font-size: 1.15rem; font-weight: 700; display:flex; align-items:center; gap:.5rem; }
+.navactions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+button { font-family: inherit; cursor: pointer; }
+.btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 8px; padding: .45rem .85rem; font-size: .82rem; transition: border-color .15s; }
+.btn:hover { border-color: var(--accent); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #06231F; font-weight: 600; }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #2A0605; font-weight: 600; }
+.btn-light { background: #E7EDF3; border-color: #E7EDF3; color: #0F1720; font-weight: 600; }
+.btn-icon { padding: .4rem .55rem; font-size: .95rem; line-height: 1; }
+select, input {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: .5rem .6rem; font-size: .85rem; font-family: inherit;
+}
+select:focus, input:focus { outline: none; border-color: var(--accent); }
+main { padding: 1rem 1.25rem 3rem; max-width: 1500px; margin: 0 auto; }
+
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: .75rem; margin-bottom: 1rem; }
+.stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: .85rem 1rem; }
+.stat-label { color: var(--text-muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+.stat-value { font-size: 1.45rem; font-weight: 700; margin-top: .2rem; }
+.stat-card.clickable { cursor: pointer; transition: border-color .15s, transform .15s; }
+.stat-card.clickable:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
+.controls-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+.controls-row > * { flex: 1 1 160px; min-width: 140px; }
+.controls-row input { flex: 2 1 220px; }
+
+.charts-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 1rem; margin-bottom: 1rem; }
+.chart-box { position: relative; height: 210px; }
+.panel h6 { margin: 0 0 .5rem; font-size: .85rem; color: var(--text-muted); font-weight: 600; }
+
+.store-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: .85rem; }
+.store-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; transition: border-color .2s, box-shadow .2s; }
+.store-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(47,184,166,.25); }
+.store-card.alert { border-color: var(--danger) !important; animation: pulse 1.4s infinite; }
+.sc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
+.sc-head h4 { margin: 0; font-size: .95rem; }
+.sc-sub { color: var(--text-muted); font-size: .75rem; margin-top: .1rem; }
+.sc-head-right { display: flex; align-items: center; gap: .4rem; }
+.badge { font-size: .68rem; padding: .2rem .55rem; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+.badge.on { background: rgba(47,184,166,.18); color: var(--accent); }
+.badge.off { background: rgba(143,160,179,.15); color: var(--text-muted); }
+.buzzer-btn { background: none; border: 1px solid var(--border); border-radius: 8px; padding: .25rem .45rem; font-size: .85rem; color: var(--text-muted); }
+.buzzer-btn:hover { border-color: var(--warn); color: var(--warn); }
+.weather-row { display: flex; flex-wrap: wrap; gap: .55rem; font-size: .78rem; color: var(--text-muted); margin-top: .55rem; }
+.coords { font-size: .72rem; color: var(--text-muted); margin-top: .15rem; }
+.rain-banner { background: rgba(228,87,76,.16); color: #C0392B; border: 1px solid var(--danger); border-radius: 8px; padding: .4rem .6rem; font-size: .74rem; margin: .6rem 0; }
+[data-theme="dark"] .rain-banner { color: #FFB4AD; }
+hr.sc { border: none; border-top: 1px solid var(--border); margin: .7rem 0; }
+.sc-row2 { display: flex; gap: .5rem; margin-bottom: .5rem; }
+.sc-row2 select { flex: 1; font-size: .78rem; padding: .4rem .5rem; }
+.timer-display { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); margin-bottom: .25rem; font-size: .85rem; }
+.timer-display.expiring { color: var(--warn); animation: pulse 1s infinite; }
+.cost-line { font-size: .8rem; margin-bottom: .55rem; }
+.cost-line b { color: var(--text); }
+.updated-line { font-size: .68rem; color: var(--text-muted); margin-top: .5rem; }
+.full-btn { width: 100%; padding: .5rem; border-radius: 8px; font-weight: 600; font-size: .82rem; }
+
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(228,87,76,.4); } 50% { box-shadow: 0 0 0 6px rgba(228,87,76,0); } }
+@keyframes flash { 0%,100% { background: transparent; } 50% { background: rgba(76,141,255,.18); } }
+.flash { animation: flash 1s ease-in-out 2; }
+
+.toast-wrap { position: fixed; top: 1rem; right: 1rem; z-index: 999; display: flex; flex-direction: column; gap: .5rem; max-width: 340px; }
+.toast { background: var(--panel-2); border: 1px solid var(--border); border-left: 4px solid var(--accent-2); border-radius: 8px; padding: .6rem .8rem; font-size: .82rem; box-shadow: 0 8px 24px rgba(0,0,0,.4); color: var(--text); }
+.toast.success { border-left-color: var(--accent); }
+.toast.warning { border-left-color: var(--warn); }
+.toast.danger { border-left-color: var(--danger); }
+
+.offcanvas { position: fixed; top: 0; right: -340px; width: 320px; height: 100%; background: var(--panel); border-left: 1px solid var(--border); transition: right .25s ease; z-index: 998; overflow-y: auto; }
+.offcanvas.open { right: 0; }
+.offcanvas-head { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border); }
+.oc-item { display: block; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--border); color: var(--text); padding: .7rem 1rem; font-size: .82rem; }
+.oc-item:hover { background: var(--panel-2); }
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(9,14,20,.75); display: none; align-items: center; justify-content: center; z-index: 1001; padding: 1rem; }
+.modal-backdrop.open { display: flex; }
+.modal-box { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); max-width: 560px; width: 100%; padding: 1.5rem; max-height: 85vh; overflow-y: auto; }
+.modal-box h5 { margin-top: 0; }
+.modal-box table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .6rem 0; }
+.modal-box td, .modal-box th { padding: .35rem .3rem; border-bottom: 1px solid var(--border); text-align: left; }
+.no-results { text-align: center; color: var(--text-muted); padding: 3rem 0; grid-column: 1 / -1; }
+
+.login-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(9,14,20,.92); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; }
+[data-theme="light"] .login-overlay { background: rgba(243,246,249,.92); }
+.login-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.25rem 2.5rem; box-shadow: 0 20px 60px rgba(0,0,0,.5); width: 100%; max-width: 380px; text-align: center; }
+.login-card .brand-mark { font-size: 2.3rem; }
+.login-card input { width: 100%; margin-bottom: .7rem; text-align: left; }
+.login-card .btn-primary { width: 100%; margin-top: .3rem; }
+.login-note { font-size: .72rem; color: var(--text-muted); margin-top: .9rem; line-height: 1.4; }
+
+.email-card { border: 1px solid var(--border); border-radius: 10px; padding: 1rem; margin-bottom: 1rem; background: var(--panel-2); }
+.email-card .subj { font-weight: 700; margin-bottom: .5rem; }
+.email-card .sig { margin-top: .8rem; font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+
+@media (max-width: 560px) { .stat-value { font-size: 1.1rem; } .login-card { padding: 1.75rem; } }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN GATE ===================== -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="brand-mark">☔</div>
+    <h3 style="margin:.4rem 0 .2rem">Rain Surge Dashboard</h3>
+    <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:1.2rem">Enter your name and email to continue. Every action you take is recorded against this email.</p>
+    <input id="loginName" placeholder="Your name" autocomplete="name" />
+    <input id="loginEmail" placeholder="Your email ID" type="email" autocomplete="email" />
+    <button class="btn btn-primary" id="loginSubmit">Enter Dashboard</button>
+    <div class="login-note">This preview logs access locally in your browser only (resets on reload). In the deployed version, every login is written to the Google Sheet with name, email, and timestamp — see the "Access Log" button once you're in.</div>
+  </div>
+</div>
+
+<div class="banner">
+  ⚠️ <span><b>Local preview mode</b> — this runs entirely in your browser with your real 94-store list. Rain Surge ON/OFF, timers, the buzzer, and charts are fully live. Weather is simulated, and emails are shown as previews rather than actually sent — both become real once you connect the Google Sheets backend.</span>
+</div>
+
+<nav class="navbar">
+  <div class="brand">☔ Rain Surge Dashboard</div>
+  <div class="navactions">
+    <span id="userBadge" style="font-size:.8rem;color:var(--text-muted)"></span>
+    <button class="btn btn-icon" id="themeToggle" title="Toggle light / dark mode">🌙</button>
+    <button class="btn" id="btnAccessLog">👥 Access Log</button>
+    <button class="btn" id="btnSendEmail">Send Report Email</button>
+    <button class="btn btn-light" id="btnDownloadCsv">⬇ Download CSV</button>
+  </div>
+</nav>
+
+<div class="toast-wrap" id="notificationArea"></div>
+
+<main>
+  <div class="grid-cards" id="summaryCards">
+    <div class="stat-card"><div class="stat-label">Total Stores</div><div class="stat-value" id="cardTotalStores">0</div></div>
+    <div class="stat-card"><div class="stat-label">Active Stores</div><div class="stat-value" id="cardActiveStores" style="color:var(--accent)">0</div></div>
+    <div class="stat-card"><div class="stat-label">Inactive Stores</div><div class="stat-value" id="cardInactiveStores">0</div></div>
+    <div class="stat-card"><div class="stat-label">Low Rain</div><div class="stat-value" id="cardLowRain">0</div></div>
+    <div class="stat-card"><div class="stat-label">Medium Rain</div><div class="stat-value" id="cardMediumRain">0</div></div>
+    <div class="stat-card"><div class="stat-label">Heavy Rain</div><div class="stat-value" id="cardHeavyRain">0</div></div>
+    <div class="stat-card"><div class="stat-label">Today's Running Cost</div><div class="stat-value" id="cardRunningCost">₹0</div></div>
+    <div class="stat-card"><div class="stat-label">Current Time</div><div class="stat-value" id="cardCurrentTime">--:--</div></div>
+    <div class="stat-card"><div class="stat-label">Current Date</div><div class="stat-value" id="cardCurrentDate">--</div></div>
+    <div class="stat-card"><div class="stat-label">Last Weather Update</div><div class="stat-value" id="cardLastWeatherUpdate">--</div></div>
+    <div class="stat-card clickable" id="activeStoreCountBtn"><div class="stat-label">Click to view</div><div class="stat-value" id="activeCountLabel">0 Active Stores</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="controls-row">
+      <select id="citySelect"><option value="">Select City</option></select>
+      <select id="storeSelect"><option value="">Select Store</option></select>
+      <select id="filterCity"><option value="ALL">Filter: All Cities</option></select>
+      <select id="filterStatus">
+        <option value="ALL">All Status</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option>
+      </select>
+      <select id="filterCategory">
+        <option value="ALL">All Categories</option><option value="LOW">Low Rain</option><option value="MEDIUM">Medium Rain</option><option value="HEAVY">Heavy Rain</option>
+      </select>
+      <input id="searchInput" placeholder="Search store / code / city" />
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="panel"><h6>Active vs Inactive</h6><div class="chart-box"><canvas id="chartActiveInactive"></canvas></div></div>
+    <div class="panel"><h6>City Wise Cost</h6><div class="chart-box"><canvas id="chartCityCost"></canvas></div></div>
+    <div class="panel"><h6>Rain Trend (sessions over time today)</h6><div class="chart-box"><canvas id="chartRainTrend"></canvas></div></div>
+  </div>
+
+  <div class="store-grid" id="storeCardGrid"></div>
+</main>
+
+<div class="offcanvas" id="activeStoreOffcanvas">
+  <div class="offcanvas-head"><strong>Active Stores</strong><button class="btn" id="closeOffcanvas">✕</button></div>
+  <div id="activeStoreList"></div>
+</div>
+
+<div class="offcanvas" id="accessLogOffcanvas">
+  <div class="offcanvas-head"><strong>Access Log</strong><button class="btn" id="closeAccessLog">✕</button></div>
+  <div id="accessLogList"></div>
+</div>
+
+<div class="modal-backdrop" id="emailModal">
+  <div class="modal-box">
+    <h5>📧 Report Email Preview — one email per city</h5>
+    <p style="color:var(--text-muted);font-size:.8rem;margin-top:-.5rem">This is exactly what would be sent (one separate email per affected city) once the backend is connected.</p>
+    <div id="emailModalBody"></div>
+    <button class="btn btn-primary full-btn" id="closeEmailModal" style="margin-top:.5rem">Close</button>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   Embedded store master data (your real 94 stores, 10 cities) —
+   normalized from Untitled_spreadsheet_completed.xlsx. TEA6 / TEA9
+   have no coordinates in the source file (see earlier explanation).
+   ===================================================================== */
+</script>
+<script>
+const STORE_DATA = [
+  { city: 'Mumbai', storeName: 'BOM_Dahisareast_ANow', storeCode: 'TML4', latitude: 19.2574665, longitude: 72.8650191 },
+  { city: 'Mumbai', storeName: 'BOM_Dahisarwest_ANow', storeCode: 'TML3', latitude: 19.2546655, longitude: 72.8538822 },
+  { city: 'Mumbai', storeName: 'BOM_JogeshwariEast_ANow', storeCode: 'TML2', latitude: 19.1354492, longitude: 72.85750879999999 },
+  { city: 'Mumbai', storeName: 'BOM_Borivali_ANow', storeCode: 'TMJ9', latitude: 19.2307329, longitude: 72.856673 },
+  { city: 'Mumbai', storeName: 'MUM_AmbernarthWest_ANow', storeCode: 'TMQ1', latitude: 19.2038, longitude: 73.1867 },
+  { city: 'Mumbai', storeName: 'MUM_Gundavali_ANow', storeCode: 'TMF2', latitude: 19.2463238, longitude: 73.0343934 },
+  { city: 'Mumbai', storeName: 'BOM_VasaiEast_ANow', storeCode: 'TMO7', latitude: 19.4055741, longitude: 72.8557411 },
+  { city: 'Mumbai', storeName: 'MUM_Shilfataroad_ANow', storeCode: 'TMO6', latitude: 19.1864953, longitude: 73.0915674 },
+  { city: 'Mumbai', storeName: 'MUM_ThaneW_ANow', storeCode: 'TMO5', latitude: 19.2467218, longitude: 72.9759713 },
+  { city: 'Mumbai', storeName: 'MUM_DombivaliEast_ANow', storeCode: 'TMP3', latitude: 19.2161427, longitude: 73.0989616 },
+  { city: 'Mumbai', storeName: 'MUM_Vashi_ANow', storeCode: 'TMR7', latitude: 18.7501386, longitude: 73.0420662 },
+  { city: 'Mumbai', storeName: 'MUM_MadhubanChowk_ANow', storeCode: 'TMP2', latitude: 28.70311, longitude: 77.13247 },
+  { city: 'Mumbai', storeName: 'MUM_Siddarthnagar_ANow', storeCode: 'TMR1', latitude: 27.2715633, longitude: 82.82097399999999 },
+  { city: 'Mumbai', storeName: 'MUM_Sakinaka_ANow', storeCode: 'TMJ8', latitude: 19.0961829, longitude: 72.88774219999999 },
+  { city: 'Mumbai', storeName: 'MUM_KalyanWest_ANow', storeCode: 'TMP7', latitude: 19.2446361, longitude: 73.1235274 },
+  { city: 'Mumbai', storeName: 'MUM_Sewri_ANow', storeCode: 'TMR6', latitude: 18.9924132, longitude: 72.8547164 },
+  { city: 'Mumbai', storeName: 'MUM_Ulwe_ANow', storeCode: 'TMR3', latitude: 18.972009, longitude: 73.0348229 },
+  { city: 'Pune', storeName: 'PUN_Talhaveli_ANow', storeCode: 'TPC9', latitude: 18.7176722, longitude: 73.7670914 },
+  { city: 'Pune', storeName: 'PUN_Tathawade_ANow', storeCode: 'TPC4', latitude: 18.627597, longitude: 73.74549 },
+  { city: 'Ahmedabad', storeName: 'AMD_Chenpur_ANow', storeCode: 'TEA6', latitude: null, longitude: null },  // ⚠ missing coordinates in source file — fill in manually
+  { city: 'Ahmedabad', storeName: 'AMD_Saibabatemple_ANow', storeCode: 'TEA9', latitude: null, longitude: null },  // ⚠ missing coordinates in source file — fill in manually
+  { city: 'Ahmedabad', storeName: 'AMD_Motera_ANow', storeCode: 'TEA2', latitude: 21.7137051, longitude: 76.0130784 },
+  { city: 'Chennai', storeName: 'CHN_Medavakkam_ANow', storeCode: 'TCB2', latitude: 12.9200089, longitude: 80.1919901 },
+  { city: 'Chennai', storeName: 'CHN_Athipattu_ANow', storeCode: 'TCC7', latitude: 13.2514715, longitude: 80.3064689 },
+  { city: 'Chennai', storeName: 'CHN_Korattur_ANow', storeCode: 'TCB5', latitude: 13.1081798, longitude: 80.1834167 },
+  { city: 'Chennai', storeName: 'CHN_NatesanRoad_ANow', storeCode: 'TCB7', latitude: 12.9768805, longitude: 80.2607495 },
+  { city: 'Chennai', storeName: 'CHN_BalajiNagar_ANow', storeCode: 'TCE5', latitude: 18.4646316, longitude: 73.8602841 },
+  { city: 'Chennai', storeName: 'CHN_Madhavaram_ANow', storeCode: 'TCE4', latitude: 13.1487898, longitude: 80.2305586 },
+  { city: 'Chennai', storeName: 'CHN_Thirumullaivayal_ANow', storeCode: 'TCD8', latitude: 13.1307405, longitude: 80.1314386 },
+  { city: 'Chennai', storeName: 'CHN_OMRNavalur_ANow', storeCode: 'TCD6', latitude: 12.8469906, longitude: 80.2265264 },
+  { city: 'Chennai', storeName: 'CHN_KannigaPuram_ANow', storeCode: 'TCE6', latitude: 13.0032072, longitude: 79.4174633 },
+  { city: 'Chennai', storeName: 'CHN_Venkatapuram_ANow', storeCode: 'TCB6', latitude: 17.4938639, longitude: 78.50431669999999 },
+  { city: 'Chennai', storeName: 'CHN_Kattupakkam_ANow', storeCode: 'TCC4', latitude: 13.0413894, longitude: 80.1267136 },
+  { city: 'Chennai', storeName: 'CHN_Ponniammanmedu_ANow', storeCode: 'TCF3', latitude: 13.1349662, longitude: 80.2274201 },
+  { city: 'Chennai', storeName: 'CHN_Anujannagar_ANow', storeCode: 'TCD2', latitude: 13.0508, longitude: 80.2075 },
+  { city: 'Chennai', storeName: 'CHN_Mugalivakkam_ANow', storeCode: 'TCD7', latitude: 13.0209529, longitude: 80.16135109999999 },
+  { city: 'Chennai', storeName: 'CHN_Nolambur_ANow', storeCode: 'TCB4', latitude: 13.075397, longitude: 80.1679758 },
+  { city: 'Hyderabad', storeName: 'HYD_Greenhills_ANow', storeCode: 'TTC8', latitude: 39.2671883, longitude: -84.5233788 },
+  { city: 'Hyderabad', storeName: 'HYD_Boduppal_ANow', storeCode: 'TTB7', latitude: 17.41412, longitude: 78.5790607 },
+  { city: 'Hyderabad', storeName: 'HYD_Uppal_ANow', storeCode: 'TTB1', latitude: 17.4015441, longitude: 78.5681716 },
+  { city: 'Hyderabad', storeName: 'HYD_Malkajgiricircle_ANow', storeCode: 'TTA9', latitude: 17.4503375, longitude: 78.53224809999999 },
+  { city: 'Hyderabad', storeName: 'HYD_Moosapet_ANow', storeCode: 'TTA5', latitude: 17.4664636, longitude: 78.4254105 },
+  { city: 'Hyderabad', storeName: 'HYD_Mirchowk_ANow', storeCode: 'TTD4', latitude: 17.3652276, longitude: 78.4769704 },
+  { city: 'Hyderabad', storeName: 'HYD_IzzatNagar_ANow', storeCode: 'TTB4', latitude: 28.4025574, longitude: 79.42452159999999 },
+  { city: 'Hyderabad', storeName: 'HYD_RangaReddydt_ANow', storeCode: 'TTB9', latitude: 17.3891, longitude: 78.4011 },
+  { city: 'Hyderabad', storeName: 'HYD_ShapurNagar_ANow', storeCode: 'TTE2', latitude: 17.5193869, longitude: 78.4429863 },
+  { city: 'Hyderabad', storeName: 'HYD_Dammaiguda_ANow', storeCode: 'TTE6', latitude: 17.5003026, longitude: 78.5938192 },
+  { city: 'Hyderabad', storeName: 'HYD_Secunderabad_ANow', storeCode: 'TTB2', latitude: 17.4399295, longitude: 78.4982741 },
+  { city: 'Hyderabad', storeName: 'HYD_MarredpallyWest_ANow', storeCode: 'TTE7', latitude: 17.4523906, longitude: 78.5060029 },
+  { city: 'Hyderabad', storeName: 'HYD_RRdist_ANow', storeCode: 'TTB8', latitude: 17.1999602, longitude: 78.5505481 },
+  { city: 'Hyderabad', storeName: 'HYD_BowenpallyCircle_ANow', storeCode: 'TTD6', latitude: 17.4764113, longitude: 78.48079589999999 },
+  { city: 'Hyderabad', storeName: 'HYD_Nagole_ANow', storeCode: 'TTC5', latitude: 17.3714737, longitude: 78.5695016 },
+  { city: 'Hyderabad', storeName: 'HYD_Khanamet_ANow', storeCode: 'TTB6', latitude: 17.4636188, longitude: 78.37800109999999 },
+  { city: 'Lucknow', storeName: 'LKO_Rajajipuram_ANow', storeCode: 'TLB5', latitude: 26.8379544, longitude: 80.8765463 },
+  { city: 'Lucknow', storeName: 'LKO_Mahanagar_ANow', storeCode: 'TLB6', latitude: 26.8785, longitude: 80.9474 },
+  { city: 'Kolkata', storeName: 'KOL_NorthPargana_ANow', storeCode: 'TKD4', latitude: 22.701, longitude: 88.374 },
+  { city: 'Jaipur', storeName: 'JAI_Gopalpura_ANow', storeCode: 'TJA1', latitude: 26.5712202, longitude: 75.7391805 },
+  { city: 'Jaipur', storeName: 'JAI_Murlipura_ANow', storeCode: 'TJA7', latitude: 26.9776019, longitude: 75.76391869999999 },
+  { city: 'Jaipur', storeName: 'JAI_TonkPhatak_ANow', storeCode: 'TJB2', latitude: 26.8792696, longitude: 75.7908453 },
+  { city: 'Jaipur', storeName: 'JAI_Jagatpura_ANow', storeCode: 'TJA3', latitude: 26.8176736, longitude: 75.86171709999999 },
+  { city: 'Bengaluru', storeName: 'BLR_UttarahalliHobli_ANow', storeCode: 'TBV8', latitude: 12.9069823, longitude: 77.552059 },
+  { city: 'Bengaluru', storeName: 'BLR_YelahankaHobli,ANow', storeCode: 'TBU1', latitude: 13.05523, longitude: 77.60239399999999 },
+  { city: 'Bengaluru', storeName: 'BLR_AnnapoorneshwariNagar_ANow', storeCode: 'TBW1', latitude: 12.979195, longitude: 77.50676059999999 },
+  { city: 'Bengaluru', storeName: 'BLR_Domlur_ANow', storeCode: 'TBV9', latitude: 12.9609857, longitude: 77.6387316 },
+  { city: 'Bengaluru', storeName: 'BLR_Yelahanka_ANow', storeCode: 'TBT9', latitude: 13.1154662, longitude: 77.6069977 },
+  { city: 'Bengaluru', storeName: 'BLR_Doddakallasandra_ANow', storeCode: 'TBP9', latitude: 12.8806617, longitude: 77.55758039999999 },
+  { city: 'Bengaluru', storeName: 'BLR_VarthurHobli_ANow', storeCode: 'TBV2', latitude: 12.938265, longitude: 77.7468954 },
+  { city: 'Bengaluru', storeName: 'BLR_kaggadasapura_ANow', storeCode: 'TBJ4', latitude: 12.9836351, longitude: 77.6797411 },
+  { city: 'Bengaluru', storeName: 'BLR_Agara_ANow', storeCode: 'TBF8', latitude: 12.9230648, longitude: 77.6464534 },
+  { city: 'Bengaluru', storeName: 'BLR_KengeriHobli_ANow', storeCode: 'TBR7', latitude: 12.9017955, longitude: 77.453704 },
+  { city: 'Bengaluru', storeName: 'BLR_Jayanagar_ANow', storeCode: 'TBS8', latitude: 12.9308107, longitude: 77.58385770000001 },
+  { city: 'NCR', storeName: 'NCR_Narela_ANow', storeCode: 'TDJ3', latitude: 28.8548818, longitude: 77.08921509999999 },
+  { city: 'NCR', storeName: 'NCR_PalamColony_ANow', storeCode: 'TDL9', latitude: 28.5900637, longitude: 77.08878279999999 },
+  { city: 'NCR', storeName: 'NCR_AmritVihar_ANow', storeCode: 'TDM7', latitude: 28.7673356, longitude: 77.181407 },
+  { city: 'NCR', storeName: 'NCR_Rithala_ANow', storeCode: 'TDM6', latitude: 28.7191961, longitude: 77.1006616 },
+  { city: 'NCR', storeName: 'NCR_Meharulidt_ANow', storeCode: 'TDO3', latitude: 28.5204882, longitude: 77.1786869 },
+  { city: 'NCR', storeName: 'NCR_VasantKunj_ANow', storeCode: 'TDD2', latitude: 28.5293121, longitude: 77.1484442 },
+  { city: 'NCR', storeName: 'NCR_Burati_ANow', storeCode: 'TDD1', latitude: 43.8357351, longitude: 18.8839455 },
+  { city: 'NCR', storeName: 'NCR_PremNagar_ANow', storeCode: 'TDM1', latitude: 29.5768405, longitude: 74.3271858 },
+  { city: 'NCR', storeName: 'NCR_UttamNagar_ANow', storeCode: 'TDL6', latitude: 28.6195574, longitude: 77.0549901 },
+  { city: 'NCR', storeName: 'NCR_Kakrola_ANow', storeCode: 'TDM4', latitude: 28.5971368, longitude: 77.0277977 },
+  { city: 'NCR', storeName: 'NCR_Ramagarden_ANow', storeCode: 'TDJ7', latitude: 28.6708, longitude: 77.3304 },
+  { city: 'NCR', storeName: 'NCR_IMTManesar_ANow', storeCode: 'TDK8', latitude: 28.3515381, longitude: 76.9427774 },
+  { city: 'NCR', storeName: 'NCR_Chauma_ANow', storeCode: 'TFA5', latitude: 29.5942044, longitude: 79.48023169999999 },
+  { city: 'NCR', storeName: 'NCR_Yojana_ANow', storeCode: 'TZA7', latitude: 28.6857, longitude: 77.2863 },
+  { city: 'NCR', storeName: 'NCR_Bagpatroad_ANow', storeCode: 'TZB4', latitude: 28.9574721, longitude: 77.27246140000001 },
+  { city: 'NCR', storeName: 'NCR_NITRailwayRoad_ANow', storeCode: 'TFA8', latitude: 28.3905, longitude: 77.3092 },
+  { city: 'NCR', storeName: 'NCR_SaraiMarket_ANow', storeCode: 'TSF6', latitude: 28.4092, longitude: 77.3168 },
+  { city: 'NCR', storeName: 'NCR_Faridabad_ANow', storeCode: 'TFB1', latitude: 28.4089123, longitude: 77.3177894 },
+  { city: 'NCR', storeName: 'NCR_Mohannagar_ANow', storeCode: 'TZA2', latitude: 28.672818, longitude: 77.3862836 },
+  { city: 'NCR', storeName: 'NCR_Indrapuram_ANow', storeCode: 'TZA4', latitude: 28.6460176, longitude: 77.3695166 },
+  { city: 'NCR', storeName: 'NCR_Buddhanagar_ANow', storeCode: 'TNG9', latitude: 27.6867401, longitude: 85.33042119999999 },
+  { city: 'NCR', storeName: 'NCR_Barola_ANow', storeCode: 'TZB6', latitude: 28.5613883, longitude: 77.3712314 },
+  { city: 'NCR', storeName: 'NCR_Buddhanagar_ANow', storeCode: 'TNF7', latitude: 27.6867401, longitude: 85.33042119999999 },
+];
+</script>
+<script>
+/* =====================================================================
+   Config
+   ===================================================================== */
+const CONFIG = {
+  RAIN_CATEGORIES: {
+    LOW: { label: "Low Rain", rate: 15 },
+    MEDIUM: { label: "Medium Rain", rate: 20 },
+    HEAVY: { label: "Heavy Rain", rate: 30 },
+  },
+  TIMER_OPTIONS: [
+    { label: "15 Minutes", minutes: 15 },
+    { label: "30 Minutes", minutes: 30 },
+    { label: "60 Minutes", minutes: 60 },
+    { label: "Manual", minutes: null },
+  ],
+  WEATHER_SIM_REFRESH_MS: 2 * 60 * 1000, // 2 minutes
+  CLOCK_TICK_MS: 1000,
+  ALERT_SOUND_URL: "https://actions.google.com/sounds/v1/alarms/beep_short.ogg",
+  BUZZER_DURATION_MS: 10000, // 10 seconds
+  EMAIL_SENDER: { name: "Rain Surge Ops Team", title: "Operations", company: "Your Company" },
+};
+
+/* =====================================================================
+   In-memory state — stands in for the Google Sheet in this preview.
+   Resets on page reload; the real deployment persists this in Sheets.
+   ===================================================================== */
+const AppState = {
+  sessions: {}, weather: {}, history: [],
+  filters: { city: "ALL", status: "ALL", category: "ALL", search: "" },
+};
+let currentUser = null;
+const accessLog = [];
+
+/* ---------------------------------------------------------- utilities */
+function money(n) { return `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`; }
+function fmtDuration(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = String(Math.floor(total / 3600)).padStart(2, "0");
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return `${h}:${m}:${s}`;
+}
+function notify(level, message) {
+  const wrap = document.getElementById("notificationArea");
+  const el = document.createElement("div");
+  el.className = `toast ${level}`;
+  el.textContent = message;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+
+/* ------------------------------------------------------------- login */
+function wireLogin() {
+  document.getElementById("loginSubmit").addEventListener("click", submitLogin);
+  document.getElementById("loginEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") submitLogin(); });
+}
+function submitLogin() {
+  const name = document.getElementById("loginName").value.trim();
+  const email = document.getElementById("loginEmail").value.trim();
+  if (!name || !/^\S+@\S+\.\S+$/.test(email)) {
+    notify("danger", "Enter a valid name and email to continue.");
+    return;
+  }
+  currentUser = { name, email };
+  accessLog.push({ name, email, time: new Date().toISOString() });
+  document.getElementById("loginOverlay").classList.add("d-none");
+  document.getElementById("loginOverlay").style.display = "none";
+  document.getElementById("userBadge").textContent = `${name} (${email})`;
+  renderAccessLog();
+  startApp();
+}
+function renderAccessLog() {
+  const el = document.getElementById("accessLogList");
+  el.innerHTML = accessLog.length
+    ? [...accessLog].reverse().map((a) => `<div class="oc-item" style="cursor:default"><b>${a.name}</b><br/><span style="color:var(--text-muted)">${a.email}</span><br/><span style="color:var(--text-muted);font-size:.72rem">${new Date(a.time).toLocaleString("en-IN")}</span></div>`).join("")
+    : `<div style="padding:1rem;color:var(--text-muted);font-size:.85rem">No logins recorded yet.</div>`;
+}
+
+/* --------------------------------------------------------------- theme */
+function wireTheme() {
+  const btn = document.getElementById("themeToggle");
+  btn.addEventListener("click", () => {
+    const html = document.documentElement;
+    const next = html.dataset.theme === "light" ? "dark" : "light";
+    html.dataset.theme = next;
+    btn.textContent = next === "light" ? "☀️" : "🌙";
+  });
+}
+
+/* ------------------------------------------------------- weather (sim) */
+const CONDITIONS = ["Light Rain", "Moderate Rain", "Heavy Rain", "Thunderstorm", "Cloudy", "Clear"];
+function simulateWeather() {
+  const rainy = Math.random() > 0.35;
+  const condition = rainy ? CONDITIONS[Math.floor(Math.random() * 4)] : CONDITIONS[4 + Math.floor(Math.random() * 2)];
+  const rainfall = rainy ? +(Math.random() * 18 + 0.5).toFixed(1) : 0;
+  return {
+    condition, temperature: Math.round(24 + Math.random() * 8), humidity: Math.round(60 + Math.random() * 35),
+    rainfall, windSpeed: Math.round(5 + Math.random() * 25), cloudCover: Math.round(30 + Math.random() * 70),
+    lastUpdated: new Date().toISOString(),
+  };
+}
+function weatherIcon(condition = "") {
+  const c = condition.toLowerCase();
+  if (c.includes("thunder")) return "⛈️";
+  if (c.includes("heavy")) return "🌧️";
+  if (c.includes("rain")) return "🌦️";
+  if (c.includes("cloud")) return "☁️";
+  return "☀️";
+}
+function refreshAllWeather(silent) {
+  STORE_DATA.forEach((s) => { AppState.weather[s.storeCode] = simulateWeather(); });
+  document.getElementById("cardLastWeatherUpdate").textContent = new Date().toLocaleTimeString("en-IN", { hour12: true });
+  if (!silent) notify("success", "Weather Updated (simulated, every 2 min)");
+  renderAll();
+  checkBuzzerCondition();
+}
+
+/* --------------------------------------------------------------- buzzer */
+let buzzerAudio = null;
+let buzzerTimeout = null;
+function getBuzzerAudio() {
+  if (!buzzerAudio) buzzerAudio = new Audio(CONFIG.ALERT_SOUND_URL);
+  return buzzerAudio;
+}
+function ringBuzzer(durationMs = CONFIG.BUZZER_DURATION_MS) {
+  const audio = getBuzzerAudio();
+  audio.currentTime = 0;
+  audio.loop = true;
+  audio.play().catch(() => {});
+  clearTimeout(buzzerTimeout);
+  buzzerTimeout = setTimeout(() => { audio.pause(); }, durationMs);
+}
+function checkBuzzerCondition() {
+  const anyStopped = Object.values(AppState.sessions).some(
+    (s) => s.status === "ACTIVE" && (AppState.weather[s.storeCode]?.rainfall ?? 0) === 0
+  );
+  if (anyStopped) {
+    notify("warning", "No rain detected at one or more active stores — buzzer ringing for 10 seconds.");
+    ringBuzzer();
+  }
+}
+
+/* --------------------------------------------------------- rain surge */
+function turnOn(storeCode) {
+  const store = STORE_DATA.find((s) => s.storeCode === storeCode);
+  if (AppState.sessions[storeCode]?.status === "ACTIVE") { notify("danger", `${storeCode} already has an active session.`); return; }
+  const categorySel = document.querySelector(`[data-role="category"][data-store="${storeCode}"]`);
+  const timerSel = document.querySelector(`[data-role="timer"][data-store="${storeCode}"]`);
+  const category = categorySel?.value || "LOW";
+  const timerMinutes = timerSel?.value ? Number(timerSel.value) : null;
+  const rate = CONFIG.RAIN_CATEGORIES[category].rate;
+
+  AppState.sessions[storeCode] = {
+    storeCode, storeName: store.storeName, city: store.city,
+    category, rate, amount: rate, timerMinutes,
+    turnOnTime: new Date().toISOString(), status: "ACTIVE",
+    employeeName: currentUser?.name || "", employeeEmail: currentUser?.email || "",
+  };
+  notify("success", `Rain Surge ON — ${store.storeName} (${storeCode})`);
+  renderAll();
+}
+function turnOff(storeCode, reason = "Manually turned off") {
+  const session = AppState.sessions[storeCode];
+  if (!session || session.status !== "ACTIVE") return;
+  const durationMin = Math.max(0, Math.round((Date.now() - new Date(session.turnOnTime)) / 60000));
+  session.turnOffTime = new Date().toISOString();
+  session.durationMin = durationMin;
+  session.amount = session.rate;
+  session.status = "COMPLETED";
+  session.remarks = reason;
+  AppState.history.push({ ...session });
+  delete AppState.sessions[storeCode];
+  notify("success", `Rain Surge OFF — ${storeCode} (${reason})`);
+  renderAll();
+}
+
+/* --------------------------------------------------------- timers */
+const timerIntervals = new Map();
+function startTimer(storeCode) {
+  stopTimer(storeCode);
+  const session = AppState.sessions[storeCode];
+  if (!session) return;
+  const el = document.querySelector(`[data-timer-for="${storeCode}"]`);
+  if (!el) return;
+  const turnOn = new Date(session.turnOnTime).getTime();
+  const isManual = !session.timerMinutes;
+  const expiry = isManual ? null : turnOn + session.timerMinutes * 60000;
+  const tick = () => {
+    const now = Date.now();
+    if (isManual) { el.textContent = `Elapsed ${fmtDuration(now - turnOn)}`; el.classList.remove("expiring"); }
+    else {
+      const remaining = expiry - now;
+      el.textContent = remaining > 0 ? `Ends in ${fmtDuration(remaining)}` : "Expired — turning off…";
+      el.classList.toggle("expiring", remaining > 0 && remaining < 60000);
+      if (remaining <= 0) { stopTimer(storeCode); turnOff(storeCode, "Timer expired"); }
+    }
+  };
+  tick();
+  timerIntervals.set(storeCode, setInterval(tick, CONFIG.CLOCK_TICK_MS));
+}
+function stopTimer(storeCode) {
+  if (timerIntervals.has(storeCode)) { clearInterval(timerIntervals.get(storeCode)); timerIntervals.delete(storeCode); }
+}
+
+/* --------------------------------------------------------- rain-stop alert (visual) */
+function checkRainStopped(store) {
+  const session = AppState.sessions[store.storeCode];
+  const weather = AppState.weather[store.storeCode];
+  const card = document.querySelector(`[data-store-code="${store.storeCode}"]`);
+  const stopped = !weather || (weather.rainfall ?? 0) === 0;
+  if (session?.status === "ACTIVE" && stopped) {
+    card?.classList.add("alert");
+    if (card && !card.querySelector(".rain-banner")) {
+      const banner = document.createElement("div");
+      banner.className = "rain-banner";
+      banner.textContent = "⚠ Rain has stopped. Please contact the respective TL and turn OFF Rain Surge.";
+      card.querySelector(".sc-head").insertAdjacentElement("afterend", banner);
+    }
+  } else {
+    card?.classList.remove("alert");
+    card?.querySelector(".rain-banner")?.remove();
+  }
+}
+
+/* ----------------------------------------------------------- filters */
+function filteredStores() {
+  const f = AppState.filters;
+  return STORE_DATA.filter((s) => {
+    if (f.city !== "ALL" && s.city !== f.city) return false;
+    const status = AppState.sessions[s.storeCode]?.status === "ACTIVE" ? "ACTIVE" : "INACTIVE";
+    if (f.status !== "ALL" && status !== f.status) return false;
+    const session = AppState.sessions[s.storeCode];
+    if (f.category !== "ALL" && session?.category !== f.category) return false;
+    if (f.search) { const q = f.search.toLowerCase(); if (!`${s.storeName} ${s.storeCode} ${s.city}`.toLowerCase().includes(q)) return false; }
+    return true;
+  });
+}
+
+/* ------------------------------------------------------- rendering */
+function renderSummary() {
+  const total = STORE_DATA.length;
+  const activeSessions = Object.values(AppState.sessions).filter((s) => s.status === "ACTIVE");
+  const active = activeSessions.length;
+  const byCategory = { LOW: 0, MEDIUM: 0, HEAVY: 0 };
+  let runningCost = 0;
+  activeSessions.forEach((s) => { byCategory[s.category]++; runningCost += s.amount; });
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("cardTotalStores", total); set("cardActiveStores", active); set("cardInactiveStores", total - active);
+  set("cardLowRain", byCategory.LOW); set("cardMediumRain", byCategory.MEDIUM); set("cardHeavyRain", byCategory.HEAVY);
+  set("cardRunningCost", money(runningCost)); set("activeCountLabel", `${active} Active Stores`);
+  updateCharts(active, total - active, activeSessions);
+  renderActiveList(activeSessions);
+}
+function tickClock() {
+  const now = new Date();
+  document.getElementById("cardCurrentTime").textContent = now.toLocaleTimeString("en-IN", { hour12: true });
+  document.getElementById("cardCurrentDate").textContent = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+function renderDropdowns() {
+  const cities = [...new Set(STORE_DATA.map((s) => s.city))].sort();
+  const citySelect = document.getElementById("citySelect");
+  citySelect.innerHTML = `<option value="">Select City</option>` + cities.map((c) => `<option value="${c}">${c}</option>`).join("");
+  const filterCity = document.getElementById("filterCity");
+  const prev = filterCity.value || "ALL";
+  filterCity.innerHTML = `<option value="ALL">Filter: All Cities</option>` + cities.map((c) => `<option value="${c}">${c}</option>`).join("");
+  filterCity.value = cities.includes(prev) ? prev : "ALL";
+}
+function renderStoreDropdown(city) {
+  const sel = document.getElementById("storeSelect");
+  const stores = STORE_DATA.filter((s) => s.city === city);
+  sel.innerHTML = `<option value="">Select Store</option>` + stores.map((s) =>
+    `<option value="${s.storeCode}">${s.storeName} (${s.storeCode}) — ${s.latitude ?? "?"}, ${s.longitude ?? "?"}</option>`).join("");
+}
+function storeCardHtml(store) {
+  const session = AppState.sessions[store.storeCode];
+  const w = AppState.weather[store.storeCode];
+  const isActive = session?.status === "ACTIVE";
+  const category = session?.category || "";
+  const rate = CONFIG.RAIN_CATEGORIES[category]?.rate ?? "";
+  const noCoords = store.latitude === null || store.latitude === undefined;
+  return `
+  <div class="store-card ${isActive ? "active" : ""}" data-store-code="${store.storeCode}">
+    <div class="sc-head">
+      <div><h4>${store.storeName}</h4><div class="sc-sub">${store.storeCode} · ${store.city}</div></div>
+      <div class="sc-head-right">
+        <button class="buzzer-btn" data-action="buzz" data-store="${store.storeCode}" title="Ring buzzer for 10 seconds">🔔</button>
+        <span class="badge ${isActive ? "on" : "off"}">${isActive ? "ACTIVE" : "INACTIVE"}</span>
+      </div>
+    </div>
+    <div class="weather-row">
+      ${w ? `<span>${weatherIcon(w.condition)} ${w.condition}</span><span>${w.temperature}°C</span><span>💧${w.rainfall}mm</span><span>💦${w.humidity}%</span><span>🌬️${w.windSpeed}km/h</span>` : `<span style="color:var(--text-muted)">Weather pending…</span>`}
+    </div>
+    <div class="coords">${noCoords ? "⚠ Coordinates missing — see README data-gap note" : `Lat ${store.latitude}, Lon ${store.longitude}`}</div>
+    <hr class="sc"/>
+    ${isActive ? `
+      <div class="cost-line">${CONFIG.RAIN_CATEGORIES[category]?.label ?? category} · Rate ${money(rate)}</div>
+      <div class="timer-display" data-timer-for="${store.storeCode}">—</div>
+      <div class="cost-line">On: ${new Date(session.turnOnTime).toLocaleTimeString("en-IN")} · Current Cost: <b>${money(session.amount)}</b></div>
+      <button class="btn btn-danger full-btn" data-action="off" data-store="${store.storeCode}">Rain Surge OFF</button>
+    ` : `
+      <div class="sc-row2">
+        <select data-role="category" data-store="${store.storeCode}">
+          ${Object.entries(CONFIG.RAIN_CATEGORIES).map(([k, v]) => `<option value="${k}">${v.label} (${money(v.rate)})</option>`).join("")}
+        </select>
+        <select data-role="timer" data-store="${store.storeCode}">
+          ${CONFIG.TIMER_OPTIONS.map((t) => `<option value="${t.minutes ?? ""}">${t.label}</option>`).join("")}
+        </select>
+      </div>
+      <button class="btn btn-primary full-btn" data-action="on" data-store="${store.storeCode}">Rain Surge ON</button>
+    `}
+    <div class="updated-line">Last Updated: ${w ? new Date(w.lastUpdated).toLocaleTimeString("en-IN") : "—"}</div>
+  </div>`;
+}
+function renderStoreCards() {
+  const grid = document.getElementById("storeCardGrid");
+  const list = filteredStores();
+  grid.innerHTML = list.length ? list.map(storeCardHtml).join("") : `<div class="no-results">No stores match the current filters.</div>`;
+  list.forEach((store) => {
+    const session = AppState.sessions[store.storeCode];
+    if (session?.status === "ACTIVE") { startTimer(store.storeCode); checkRainStopped(store); }
+    else { stopTimer(store.storeCode); }
+  });
+}
+function renderActiveList(activeSessions) {
+  const list = document.getElementById("activeStoreList");
+  list.innerHTML = activeSessions.length
+    ? activeSessions.map((s) => `<button class="oc-item" data-scroll-to="${s.storeCode}">${s.storeName} (${s.storeCode}) — ${s.city}</button>`).join("")
+    : `<div style="padding:1rem;color:var(--text-muted);font-size:.85rem">No active sessions right now.</div>`;
+}
+function scrollToStore(storeCode) {
+  AppState.filters = { city: "ALL", status: "ALL", category: "ALL", search: "" };
+  document.getElementById("searchInput").value = "";
+  document.getElementById("filterCity").value = "ALL";
+  document.getElementById("filterStatus").value = "ALL";
+  document.getElementById("filterCategory").value = "ALL";
+  renderStoreCards();
+  const target = document.querySelector(`[data-store-code="${storeCode}"]`);
+  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  target?.classList.add("flash");
+  setTimeout(() => target?.classList.remove("flash"), 2000);
+  document.getElementById("activeStoreOffcanvas").classList.remove("open");
+}
+function renderAll() { renderSummary(); renderStoreCards(); }
+
+/* ------------------------------------------------------------- charts */
+let pieChart, barChart, lineChart;
+const PALETTE = { active: "#2FB8A6", inactive: "#3A4A63", text: "#B7C2D0", line: "#4C8DFF", grid: "rgba(255,255,255,.06)" };
+function baseOpts(extra = {}) {
+  return { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: PALETTE.text } } },
+    scales: { x: { ticks: { color: PALETTE.text }, grid: { color: PALETTE.grid } }, y: { ticks: { color: PALETTE.text }, grid: { color: PALETTE.grid } } }, ...extra };
+}
+function initCharts() {
+  pieChart = new Chart(document.getElementById("chartActiveInactive"), {
+    type: "doughnut", data: { labels: ["Active", "Inactive"], datasets: [{ data: [0, STORE_DATA.length], backgroundColor: [PALETTE.active, PALETTE.inactive] }] },
+    options: baseOpts({ scales: undefined, cutout: "65%" }),
+  });
+  barChart = new Chart(document.getElementById("chartCityCost"), {
+    type: "bar", data: { labels: [], datasets: [{ label: "Cost (₹)", data: [], backgroundColor: PALETTE.line }] }, options: baseOpts(),
+  });
+  lineChart = new Chart(document.getElementById("chartRainTrend"), {
+    type: "line", data: { labels: [], datasets: [{ label: "Active Sessions", data: [], borderColor: PALETTE.line, backgroundColor: "rgba(76,141,255,.15)", tension: .35, fill: true }] },
+    options: baseOpts(),
+  });
+}
+const trendLog = [];
+function updateCharts(active, inactive, activeSessions) {
+  pieChart.data.datasets[0].data = [active, inactive]; pieChart.update();
+  const byCity = {};
+  activeSessions.forEach((s) => { byCity[s.city] = (byCity[s.city] || 0) + s.amount; });
+  const entries = Object.entries(byCity);
+  barChart.data.labels = entries.map((e) => e[0]);
+  barChart.data.datasets[0].data = entries.map((e) => e[1]);
+  barChart.update();
+  const label = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  if (trendLog.length === 0 || trendLog[trendLog.length - 1].count !== active) {
+    trendLog.push({ label, count: active });
+    if (trendLog.length > 20) trendLog.shift();
+  }
+  lineChart.data.labels = trendLog.map((p) => p.label);
+  lineChart.data.datasets[0].data = trendLog.map((p) => p.count);
+  lineChart.update();
+}
+
+/* --------------------------------------------------------------- CSV */
+function buildCsv() {
+  const headers = ["Date","StoreName","StoreCode","City","Latitude","Longitude","RainCategory","Rate","Amount","Timer","TurnOnTime","TurnOffTime","Duration","Remarks","Status","EmployeeName","EmployeeEmail"];
+  const rows = [...AppState.history, ...Object.values(AppState.sessions)];
+  const lines = [headers.join(",")];
+  rows.forEach((s) => {
+    const store = STORE_DATA.find((x) => x.storeCode === s.storeCode) || {};
+    const cells = [
+      new Date().toISOString().slice(0,10), s.storeName, s.storeCode, s.city, store.latitude ?? "", store.longitude ?? "",
+      s.category, s.rate, s.amount, s.timerMinutes ? `${s.timerMinutes} Minutes` : "Manual",
+      s.turnOnTime, s.turnOffTime || "", s.durationMin != null ? `${s.durationMin} min` : "",
+      s.remarks || "", s.status, s.employeeName, s.employeeEmail,
+    ];
+    lines.push(cells.map((c) => { const str = String(c ?? ""); return /[",\n]/.test(str) ? `"${str.replace(/"/g,'""')}"` : str; }).join(","));
+  });
+  return lines.join("\n");
+}
+function downloadCsv() {
+  const blob = new Blob([buildCsv()], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `RainSurge_Preview_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  notify("success", "CSV Generated");
+}
+
+/* ------------------------------------------------------------- per-city email template */
+function buildCityReport(city, rows) {
+  const byStore = {};
+  rows.forEach((s) => {
+    if (!byStore[s.storeName]) byStore[s.storeName] = { amount: 0, durationMin: 0 };
+    byStore[s.storeName].amount += s.amount;
+    byStore[s.storeName].durationMin += s.durationMin ?? Math.round((Date.now() - new Date(s.turnOnTime)) / 60000);
+  });
+  const tableRows = Object.entries(byStore).map(([name, v]) =>
+    `<tr><td>${name}</td><td style="text-align:center">${money(v.amount)}</td><td style="text-align:center">${v.durationMin} mins</td></tr>`
+  ).join("");
+  return `
+  <div class="email-card">
+    <div class="subj">Subject: Rainfall Impact on Operations at ${city}</div>
+    <p>Dear sir,</p>
+    <p>Heavy rainfall impacted the below-mentioned <b>${city}</b> stores during the specified period, leading to elevated LM delays. Rain Surge Mode was enabled with the corresponding surge amounts listed below to support operations.</p>
+    <table>
+      <tr><th>Store Name</th><th style="text-align:center">Surge Amount</th><th style="text-align:center">Total Duration</th></tr>
+      ${tableRows || `<tr><td colspan="3">No sessions recorded for ${city} yet.</td></tr>`}
+    </table>
+    <div class="sig">
+      Regards,<br/>
+      <b>${CONFIG.EMAIL_SENDER.name}</b><br/>
+      ${CONFIG.EMAIL_SENDER.title}<br/>
+      ${CONFIG.EMAIL_SENDER.company}
+    </div>
+  </div>`;
+}
+function showEmailPreview() {
+  const rows = [...AppState.history, ...Object.values(AppState.sessions)];
+  const cities = [...new Set(rows.map((r) => r.city))].sort();
+  document.getElementById("emailModalBody").innerHTML = cities.length
+    ? cities.map((city) => buildCityReport(city, rows.filter((r) => r.city === city))).join("")
+    : `<p style="color:var(--text-muted)">No sessions yet — turn on a store to see a real per-city email preview here.</p>`;
+  document.getElementById("emailModal").classList.add("open");
+}
+
+/* ------------------------------------------------------------- wiring */
+function wireUi() {
+  document.getElementById("citySelect").addEventListener("change", (e) => renderStoreDropdown(e.target.value));
+  document.getElementById("filterCity").addEventListener("change", (e) => { AppState.filters.city = e.target.value; renderStoreCards(); });
+  document.getElementById("filterStatus").addEventListener("change", (e) => { AppState.filters.status = e.target.value; renderStoreCards(); });
+  document.getElementById("filterCategory").addEventListener("change", (e) => { AppState.filters.category = e.target.value; renderStoreCards(); });
+  document.getElementById("searchInput").addEventListener("input", (e) => { AppState.filters.search = e.target.value.trim(); renderStoreCards(); });
+
+  document.getElementById("activeStoreCountBtn").addEventListener("click", () => document.getElementById("activeStoreOffcanvas").classList.add("open"));
+  document.getElementById("closeOffcanvas").addEventListener("click", () => document.getElementById("activeStoreOffcanvas").classList.remove("open"));
+  document.getElementById("activeStoreList").addEventListener("click", (e) => { const b = e.target.closest("[data-scroll-to]"); if (b) scrollToStore(b.dataset.scrollTo); });
+
+  document.getElementById("btnAccessLog").addEventListener("click", () => document.getElementById("accessLogOffcanvas").classList.add("open"));
+  document.getElementById("closeAccessLog").addEventListener("click", () => document.getElementById("accessLogOffcanvas").classList.remove("open"));
+
+  document.getElementById("btnDownloadCsv").addEventListener("click", downloadCsv);
+  document.getElementById("btnSendEmail").addEventListener("click", showEmailPreview);
+  document.getElementById("closeEmailModal").addEventListener("click", () => document.getElementById("emailModal").classList.remove("open"));
+
+  document.getElementById("storeCardGrid").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    if (btn.dataset.action === "on") turnOn(btn.dataset.store);
+    if (btn.dataset.action === "off") turnOff(btn.dataset.store);
+    if (btn.dataset.action === "buzz") { ringBuzzer(); notify("warning", `Buzzer manually triggered for ${btn.dataset.store} — ringing 10 seconds.`); }
+  });
+}
+
+/* -------------------------------------------------------------- init */
+function startApp() {
+  initCharts();
+  renderDropdowns();
+  refreshAllWeather(true);
+  tickClock();
+  setInterval(tickClock, CONFIG.CLOCK_TICK_MS);
+  setInterval(() => refreshAllWeather(false), CONFIG.WEATHER_SIM_REFRESH_MS);
+}
+wireUi();
+wireLogin();
+wireTheme();
+</script>
+</body>
+</html>

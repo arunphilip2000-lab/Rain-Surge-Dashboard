@@ -1,0 +1,172 @@
+/**
+ * style.css
+ * ---------------------------------------------------------------------------
+ * Design direction: this is an ops-monitoring tool watched for hours at a
+ * stretch by store/TL teams, often on a shared screen or a phone in the
+ * field — so it leans dark (low glare, long-session comfort), with a
+ * "storm sky" palette (deep slate/navy) and a single desaturated teal
+ * accent that reads as "water/rain" without being a literal weather-app
+ * cliché. Status is colour-coded consistently: teal = active/live,
+ * amber = warning/expiring, red = alert (rain stopped).
+ * ---------------------------------------------------------------------------
+ */
+
+:root, :root[data-theme="dark"] {
+  --bg: #0F1720;
+  --panel: #16212C;
+  --panel-2: #1C2A38;
+  --border: #263544;
+  --text: #E7EDF3;
+  --text-muted: #8FA0B3;
+  --accent: #2FB8A6;
+  --accent-2: #4C8DFF;
+  --warn: #E3A438;
+  --danger: #E4574C;
+  --radius: 14px;
+}
+
+:root[data-theme="light"] {
+  --bg: #F3F6F9;
+  --panel: #FFFFFF;
+  --panel-2: #F1F4F8;
+  --border: #DCE4EC;
+  --text: #17222E;
+  --text-muted: #5C6C7C;
+  --accent: #128577;
+  --accent-2: #2F6FED;
+  --warn: #A66206;
+  --danger: #C0392B;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  transition: background .2s, color .2s;
+}
+[data-theme="dark"] body {
+  background: radial-gradient(1200px 600px at 10% -10%, #16222E 0%, var(--bg) 55%);
+}
+
+/* ------------------------------------------------------------- login ---- */
+.login-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(9, 14, 20, 0.92);
+  backdrop-filter: blur(6px);
+}
+[data-theme="light"] .login-overlay { background: rgba(243, 246, 249, 0.92); }
+.login-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2.5rem 3rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.brand-mark { font-size: 2.5rem; }
+
+/* ------------------------------------------------------------ navbar ---- */
+.app-navbar {
+  background: linear-gradient(90deg, #0E1A24, #14232F);
+  border-bottom: 1px solid var(--border);
+  padding-top: .75rem;
+  padding-bottom: .75rem;
+}
+[data-theme="light"] .app-navbar { background: linear-gradient(90deg, #FFFFFF, #F3F6F9); }
+[data-theme="light"] .app-navbar .navbar-brand,
+[data-theme="light"] .app-navbar .text-light { color: var(--text) !important; }
+
+/* ---------------------------------------------------------- panels ------ */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* ------------------------------------------------------- summary cards -- */
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .9rem 1rem;
+  height: 100%;
+}
+.stat-label { color: var(--text-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
+.stat-value { font-size: 1.5rem; font-weight: 700; margin-top: .15rem; }
+.stat-card-button {
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.stat-card-button:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+/* -------------------------------------------------------------- charts -- */
+.chart-box { position: relative; height: 220px; }
+
+/* ---------------------------------------------------------- store cards - */
+.store-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.store-card.border-active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(47,184,166,0.25); }
+
+.weather-row { display: flex; flex-wrap: wrap; gap: .6rem; font-size: .82rem; color: var(--text-muted); }
+.coords { margin-top: .25rem; font-size: .75rem; }
+
+.timer-display {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: .25rem;
+}
+.timer-display.timer-expiring { color: var(--warn); animation: pulse 1s infinite; }
+
+.rain-stop-banner {
+  background: rgba(228, 87, 76, 0.16);
+  color: #FFB4AD;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: .4rem .6rem;
+  font-size: .78rem;
+  margin-bottom: .6rem;
+}
+[data-theme="light"] .rain-stop-banner { color: #8E241A; }
+.rain-stopped-alert { border-color: var(--danger) !important; animation: pulse 1.4s infinite; }
+
+.flash-highlight { animation: flash 1s ease-in-out 2; }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(228,87,76,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(228,87,76,0); }
+}
+@keyframes flash {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(76,141,255,0.18); }
+}
+
+/* -------------------------------------------------------------- misc ---- */
+.form-select, .form-control {
+  background-color: var(--panel-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+.form-select:focus, .form-control:focus {
+  background-color: var(--panel-2);
+  color: var(--text);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 .2rem rgba(47,184,166,0.2);
+}
+.offcanvas { background: var(--panel); color: var(--text); }
+.list-group-item { background: transparent; color: var(--text); border-color: var(--border); }
+.list-group-item-action:hover { background: var(--panel-2); }
+
+@media (max-width: 576px) {
+  .stat-value { font-size: 1.2rem; }
+  .login-card { padding: 2rem 1.5rem; }
+}
