@@ -69,6 +69,9 @@ const GoogleSheetsAPI = (() => {
     /** Recent access log (most recent first), for the "Access Log" panel. */
     getLogins: () => callGet("getLogins"),
 
+    /** Total cost + session count per day (all time, newest first). */
+    getDailyReport: () => callGet("getDailyReport"),
+
     /** Manually (re)send today's per-city report emails — same path midnight uses. */
     sendReportEmail: () => callPost("sendReportEmail", {}),
   };
