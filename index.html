@@ -37,6 +37,7 @@
       <span id="userBadge" class="text-light small"></span>
       <button id="themeToggle" class="btn btn-sm btn-outline-light" title="Toggle light / dark mode">🌙</button>
       <button id="btnAccessLog" class="btn btn-sm btn-outline-light">👥 Access Log</button>
+      <button id="btnDailyReport" class="btn btn-sm btn-outline-light">📅 Daily Report</button>
       <button id="btnSendEmail" class="btn btn-sm btn-outline-light">Send Report Email</button>
       <button id="btnDownloadCsv" class="btn btn-sm btn-light">⬇ Download CSV</button>
     </div>
@@ -87,6 +88,13 @@
                 <option value="HEAVY">Heavy Rain</option>
               </select>
             </div>
+            <div class="col-6 col-md-2">
+              <select id="filterRainStatus" class="form-select">
+                <option value="ALL">All Weather</option>
+                <option value="RAINING">Currently Raining</option>
+                <option value="NOT_RAINING">Not Raining</option>
+              </select>
+            </div>
             <div class="col-12 col-md-2">
               <input id="searchInput" class="form-control" placeholder="Search store / code / city" />
             </div>
@@ -132,6 +140,22 @@
     </div>
     <div class="offcanvas-body p-0">
       <div id="accessLogList" class="list-group list-group-flush"></div>
+    </div>
+  </div>
+
+  <!-- ===================== DAILY REPORT OFFCANVAS ===================== -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="dailyReportOffcanvas">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Daily Cost Report</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr><th class="ps-3">Date</th><th class="text-center">Sessions</th><th class="text-end pe-3">Total Cost</th></tr>
+        </thead>
+        <tbody id="dailyReportBody"></tbody>
+      </table>
     </div>
   </div>
 
