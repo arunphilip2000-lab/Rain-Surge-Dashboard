@@ -129,6 +129,7 @@ const App = (() => {
   const sessionId = `sess_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
 
   let demoModeNotified = false;
+  let lastBuzzerWeatherUpdate = null; // tracks which weather cycle we last buzzed for
 
   /**
    * Used only when the Apps Script backend isn't reachable yet (e.g.
@@ -154,7 +155,16 @@ const App = (() => {
     try {
       const state = await GoogleSheetsAPI.getState();
       Dashboard.setState(state);
-      if (state.anyRainStopped) Dashboard.ringBuzzer();
+      // The server only updates anyRainStopped when a weather refresh
+      // actually runs (~every 2 minutes) — but we poll every 12 seconds,
+      // so without this check the buzzer would re-ring on every single
+      // poll while the condition holds, instead of once per real check.
+      // lastWeatherUpdate changing is our signal that a genuinely new
+      // check happened.
+      if (state.anyRainStopped && state.lastWeatherUpdate !== lastBuzzerWeatherUpdate) {
+        Dashboard.ringBuzzer();
+        lastBuzzerWeatherUpdate = state.lastWeatherUpdate;
+      }
     } catch (err) {
       Dashboard.setState(buildDemoState());
       if (!demoModeNotified) {
