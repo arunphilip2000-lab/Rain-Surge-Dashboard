@@ -151,6 +151,12 @@ body {
 }
 
 /* -------------------------------------------------------------- misc ---- */
+/* Bootstrap's .text-muted hardcodes a fixed grey (#6c757d) that ignores
+   our theme variables entirely — this is what made store code/city and
+   coordinate text hard to read in dark mode. Override it to always use
+   the theme-aware muted color instead. */
+.text-muted { color: var(--text-muted) !important; }
+
 .form-select, .form-control {
   background-color: var(--panel-2);
   border-color: var(--border);
