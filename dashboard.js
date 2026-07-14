@@ -10,7 +10,7 @@
 
 const Dashboard = (() => {
   let state = { stores: [], sessions: {}, weather: {} };
-  let filters = { city: "ALL", status: "ALL", category: "ALL", search: "" };
+  let filters = { city: "ALL", status: "ALL", category: "ALL", rainStatus: "ALL", search: "" };
 
   // ---------------------------------------------------------------- utils
   function money(n) {
@@ -66,6 +66,29 @@ const Dashboard = (() => {
       html.dataset.theme = next;
       btn.textContent = next === "light" ? "☀️" : "🌙";
     });
+  }
+
+  // -------------------------------------------------------- daily report
+  async function loadDailyReport() {
+    try {
+      const rows = await GoogleSheetsAPI.getDailyReport();
+      const body = document.getElementById("dailyReportBody");
+      if (!body) return;
+      body.innerHTML = rows.length
+        ? rows
+            .map(
+              (r) => `
+              <tr>
+                <td class="ps-3">${r.date}</td>
+                <td class="text-center">${r.sessionCount}</td>
+                <td class="text-end pe-3">${money(r.totalCost)}</td>
+              </tr>`
+            )
+            .join("")
+        : `<tr><td colspan="3" class="text-center text-muted p-3">No sessions recorded yet.</td></tr>`;
+    } catch (err) {
+      notify("danger", `Could not load daily report: ${err.message}`);
+    }
   }
 
   // -------------------------------------------------------- access log
@@ -193,6 +216,11 @@ const Dashboard = (() => {
       if (filters.status !== "ALL" && status !== filters.status) return false;
       const session = state.sessions[s.storeCode];
       if (filters.category !== "ALL" && session?.category !== filters.category) return false;
+      if (filters.rainStatus !== "ALL") {
+        const isRaining = (state.weather[s.storeCode]?.rainfall ?? 0) > 0;
+        if (filters.rainStatus === "RAINING" && !isRaining) return false;
+        if (filters.rainStatus === "NOT_RAINING" && isRaining) return false;
+      }
       if (filters.search) {
         const q = filters.search.toLowerCase();
         const hay = `${s.storeName} ${s.storeCode} ${s.city}`.toLowerCase();
@@ -308,8 +336,15 @@ const Dashboard = (() => {
   }
 
   function scrollToStore(storeCode) {
-    filters = { city: "ALL", status: "ALL", category: "ALL", search: "" };
+    filters = { city: "ALL", status: "ALL", category: "ALL", rainStatus: "ALL", search: "" };
     document.getElementById("searchInput").value = "";
+    const setSel = (id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "ALL";
+    };
+    setSel("filterStatus");
+    setSel("filterCategory");
+    setSel("filterRainStatus");
     renderStoreCards();
     const target = document.querySelector(`[data-store-code="${storeCode}"]`);
     target?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -352,6 +387,10 @@ const Dashboard = (() => {
       filters.category = e.target.value || "ALL";
       renderStoreCards();
     });
+    document.getElementById("filterRainStatus")?.addEventListener("change", (e) => {
+      filters.rainStatus = e.target.value || "ALL";
+      renderStoreCards();
+    });
     document.getElementById("searchInput")?.addEventListener("input", (e) => {
       filters.search = e.target.value.trim();
       renderStoreCards();
@@ -385,6 +424,11 @@ const Dashboard = (() => {
     document.getElementById("btnAccessLog")?.addEventListener("click", () => {
       loadAccessLog();
       new bootstrap.Offcanvas(document.getElementById("accessLogOffcanvas")).show();
+    });
+
+    document.getElementById("btnDailyReport")?.addEventListener("click", () => {
+      loadDailyReport();
+      new bootstrap.Offcanvas(document.getElementById("dailyReportOffcanvas")).show();
     });
   }
 
