@@ -15,8 +15,9 @@ const EmailModule = (() => {
     Dashboard.notify("info", "Generating report and sending email…");
     try {
       await GoogleSheetsAPI.logEvent({ type: "MANUAL_EMAIL_TRIGGER", user: Auth.currentUser() });
-      await GoogleSheetsAPI.sendReportEmail();
-      Dashboard.notify("success", "Email Sent");
+      const result = await GoogleSheetsAPI.sendReportEmail();
+      const level = result.sentCount > 0 ? "success" : "warning";
+      Dashboard.notify(level, result.message || "Done.");
     } catch (err) {
       Dashboard.notify("danger", `Failed to send email: ${err.message}`);
     }
