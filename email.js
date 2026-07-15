@@ -23,9 +23,36 @@ const EmailModule = (() => {
     }
   }
 
-  function wireUi() {
-    document.getElementById("btnSendEmail")?.addEventListener("click", sendNow);
+  /** Recovery path for a missed automatic midnight run — resend the
+   *  report for any specific past date the user picks. */
+  async function resendForDate() {
+    const dateInput = document.getElementById("resendDateInput");
+    const date = dateInput?.value; // yyyy-MM-dd from <input type="date">
+    if (!date) {
+      Dashboard.notify("danger", "Pick a date first.");
+      return;
+    }
+
+    Dashboard.notify("info", `Sending report for ${date}…`);
+    try {
+      await GoogleSheetsAPI.logEvent({ type: "MANUAL_EMAIL_RESEND", date, user: Auth.currentUser() });
+      const result = await GoogleSheetsAPI.sendReportEmailForDate(date);
+      const level = result.sentCount > 0 ? "success" : "warning";
+      Dashboard.notify(level, result.message || "Done.");
+      bootstrap.Modal.getInstance(document.getElementById("resendEmailModal"))?.hide();
+    } catch (err) {
+      Dashboard.notify("danger", `Failed to resend: ${err.message}`);
+    }
   }
 
-  return { sendNow, wireUi };
+  function wireUi() {
+    document.getElementById("btnSendEmail")?.addEventListener("click", sendNow);
+
+    document.getElementById("btnResendEmail")?.addEventListener("click", () => {
+      new bootstrap.Modal(document.getElementById("resendEmailModal")).show();
+    });
+    document.getElementById("btnResendSend")?.addEventListener("click", resendForDate);
+  }
+
+  return { sendNow, resendForDate, wireUi };
 })();
