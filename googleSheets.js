@@ -28,6 +28,22 @@ const GoogleSheetsAPI = (() => {
     return json.data;
   }
 
+  /**
+   * For GET endpoints that return a raw, non-JSON body (currently just
+   * exportCsv, which the server sends back as plain CSV text via
+   * ContentService — not JSON-wrapped like every other action). Using
+   * callGet() here would always fail, since res.json() can't parse CSV.
+   */
+  async function callGetRaw(action, params = {}) {
+    const url = new URL(CONFIG.APPS_SCRIPT_URL);
+    url.searchParams.set("action", action);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+    const res = await fetch(url.toString(), { method: "GET" });
+    if (!res.ok) throw new Error(`GET ${action} failed: ${res.status}`);
+    return res.text();
+  }
+
   async function callPost(action, payload = {}) {
     const body = JSON.stringify({ action, ...payload });
     const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
@@ -58,7 +74,7 @@ const GoogleSheetsAPI = (() => {
     rainOff: (payload) => callPost("rainOff", payload),
 
     /** Manually request the CSV export (mirrors the auto-generated one). */
-    exportCsv: () => callGet("exportCsv"),
+    exportCsv: () => callGetRaw("exportCsv"),
 
     /** Server-side log line for an audit/notification event. */
     logEvent: (payload) => callPost("logEvent", payload),
@@ -74,5 +90,9 @@ const GoogleSheetsAPI = (() => {
 
     /** Manually (re)send today's per-city report emails — same path midnight uses. */
     sendReportEmail: () => callPost("sendReportEmail", {}),
+
+    /** Resend the report for a SPECIFIC past date (yyyy-MM-dd) — the
+     *  recovery path for when the automatic 12:30 AM run was missed. */
+    sendReportEmailForDate: (date) => callPost("sendReportEmailForDate", { date }),
   };
 })();
