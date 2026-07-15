@@ -12,28 +12,27 @@
  */
 
 const Weather = (() => {
-  function icon(condition = "") {
-    const c = condition.toLowerCase();
-    if (c.includes("thunder")) return "⛈️";
-    if (c.includes("heavy")) return "🌧️";
-    if (c.includes("rain") || c.includes("drizzle")) return "🌦️";
-    if (c.includes("cloud")) return "☁️";
-    if (c.includes("clear") || c.includes("sun")) return "☀️";
-    return "🌤️";
-  }
-
+  /**
+   * By design, the dashboard only ever shows "Raining" or "Clear" — never
+   * the weather provider's raw description (Mist, Patchy rain nearby,
+   * Overcast, etc.), which was reported as confusing for quick scanning.
+   * The full raw condition text is still stored server-side in
+   * WeatherCache and the exported CSV, in case it's useful later — this
+   * only simplifies what's DISPLAYED here.
+   */
   function format(weather) {
     if (!weather) return null;
+    const isRaining = (weather.rainfall ?? 0) > 0;
     return {
-      condition: weather.condition || "—",
-      icon: icon(weather.condition),
+      condition: isRaining ? "Raining" : "Clear",
+      icon: isRaining ? "🌧️" : "☀️",
       temperature: `${Math.round(weather.temperature ?? 0)}°C`,
       humidity: `${Math.round(weather.humidity ?? 0)}%`,
       rainfall: `${(weather.rainfall ?? 0).toFixed(1)} mm`,
       windSpeed: `${Math.round(weather.windSpeed ?? 0)} km/h`,
       cloudCover: `${Math.round(weather.cloudCover ?? 0)}%`,
       lastUpdated: weather.lastUpdated || null,
-      isRaining: (weather.rainfall ?? 0) > 0,
+      isRaining,
     };
   }
 
@@ -68,5 +67,5 @@ const Weather = (() => {
     }
   }
 
-  return { format, checkRainStopped, icon };
+  return { format, checkRainStopped };
 })();
