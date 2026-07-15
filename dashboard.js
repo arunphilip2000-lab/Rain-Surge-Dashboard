@@ -320,6 +320,68 @@ const Dashboard = (() => {
     });
   }
 
+  // -------------------------------------------------------- drilldowns
+  /** Shared panel every clickable summary card opens into — just needs a
+   *  title and a flat list of {storeCode, storeName, city, meta?}. */
+  function showMetricDrilldown(title, items) {
+    document.getElementById("metricDrilldownTitle").textContent = title;
+    const list = document.getElementById("metricDrilldownList");
+    list.innerHTML = items.length
+      ? items
+          .map(
+            (it) => `
+        <button class="list-group-item list-group-item-action" data-scroll-to="${it.storeCode}">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>${it.storeName} (${it.storeCode}) — ${it.city}</span>
+            ${it.meta ? `<span class="text-muted small ms-2">${it.meta}</span>` : ""}
+          </div>
+        </button>`
+          )
+          .join("")
+      : `<div class="p-3 text-muted small">Nothing to show right now.</div>`;
+    new bootstrap.Offcanvas(document.getElementById("metricDrilldownOffcanvas")).show();
+  }
+
+  function topRainiestStores(limit = 10) {
+    return [...state.stores]
+      .map((s) => ({ ...s, rainfall: state.weather[s.storeCode]?.rainfall ?? 0 }))
+      .sort((a, b) => b.rainfall - a.rainfall)
+      .slice(0, limit)
+      .map((s) => ({ storeCode: s.storeCode, storeName: s.storeName, city: s.city, meta: `${s.rainfall.toFixed(1)} mm` }));
+  }
+
+  function storesByStatus(target) {
+    return state.stores
+      .filter((s) => statusOf(s.storeCode) === target)
+      .map((s) => ({ storeCode: s.storeCode, storeName: s.storeName, city: s.city }));
+  }
+
+  function storesByCategory(category) {
+    return Object.values(state.sessions)
+      .filter((s) => s.category === category)
+      .map((s) => ({ storeCode: s.storeCode, storeName: s.storeName, city: s.city, meta: money(s.amount) }));
+  }
+
+  function storesByCostDesc() {
+    return Object.values(state.sessions)
+      .slice()
+      .sort((a, b) => b.amount - a.amount)
+      .map((s) => ({ storeCode: s.storeCode, storeName: s.storeName, city: s.city, meta: money(s.amount) }));
+  }
+
+  function storesByFreshness(limit = 10) {
+    return [...state.stores]
+      .filter((s) => state.weather[s.storeCode]?.lastUpdated)
+      .sort((a, b) => new Date(state.weather[b.storeCode].lastUpdated) - new Date(state.weather[a.storeCode].lastUpdated))
+      .slice(0, limit)
+      .map((s) => ({
+        storeCode: s.storeCode,
+        storeName: s.storeName,
+        city: s.city,
+        meta: new Date(state.weather[s.storeCode].lastUpdated).toLocaleTimeString("en-IN"),
+      }));
+  }
+
   function renderActiveList(activeSessions) {
     const list = document.getElementById("activeStoreList");
     const countBtn = document.getElementById("activeStoreCountBtn");
@@ -371,6 +433,37 @@ const Dashboard = (() => {
 
   // ---------------------------------------------------------------- wiring
   function wireStaticUi() {
+    document.getElementById("cardBoxTotal")?.addEventListener("click", () =>
+      showMetricDrilldown("Top 10 Stores by Rainfall", topRainiestStores(10))
+    );
+    document.getElementById("cardBoxActive")?.addEventListener("click", () =>
+      document.getElementById("activeStoreCountBtn")?.click()
+    );
+    document.getElementById("cardBoxInactive")?.addEventListener("click", () =>
+      showMetricDrilldown("Inactive Stores", storesByStatus("INACTIVE"))
+    );
+    document.getElementById("cardBoxLow")?.addEventListener("click", () =>
+      showMetricDrilldown("Low Rain Stores", storesByCategory("LOW"))
+    );
+    document.getElementById("cardBoxMedium")?.addEventListener("click", () =>
+      showMetricDrilldown("Medium Rain Stores", storesByCategory("MEDIUM"))
+    );
+    document.getElementById("cardBoxHeavy")?.addEventListener("click", () =>
+      showMetricDrilldown("Heavy Rain Stores", storesByCategory("HEAVY"))
+    );
+    document.getElementById("cardBoxCost")?.addEventListener("click", () =>
+      showMetricDrilldown("Cost Breakdown — Active Stores", storesByCostDesc())
+    );
+    document.getElementById("cardBoxWeather")?.addEventListener("click", () =>
+      showMetricDrilldown("Most Recently Updated Weather", storesByFreshness(10))
+    );
+    document.getElementById("metricDrilldownList")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-scroll-to]");
+      if (!btn) return;
+      scrollToStore(btn.dataset.scrollTo);
+      bootstrap.Offcanvas.getInstance(document.getElementById("metricDrilldownOffcanvas"))?.hide();
+    });
+
     document.getElementById("citySelect")?.addEventListener("change", (e) => {
       renderStoreDropdown(e.target.value);
     });
