@@ -100,6 +100,8 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 10px 24px rgba(0,0,0,.22);
 }
+.stat-card.clickable { cursor: pointer; }
+.stat-card.clickable:hover { border-color: var(--card-accent, var(--accent)); }
 .stat-label { color: var(--text-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
 .stat-value { font-size: 1.5rem; font-weight: 700; margin-top: .15rem; }
 
