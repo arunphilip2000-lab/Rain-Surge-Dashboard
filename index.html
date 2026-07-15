@@ -48,16 +48,16 @@
 
     <!-- ===================== SUMMARY CARDS ===================== -->
     <div class="row g-3 mb-3" id="summaryCards">
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--total"><div class="stat-label">🏬 Total Stores</div><div class="stat-value" id="cardTotalStores">0</div></div></div>
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--active"><div class="stat-label">🟢 Active Stores</div><div class="stat-value" id="cardActiveStores">0</div></div></div>
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--inactive"><div class="stat-label">⚪ Inactive Stores</div><div class="stat-value" id="cardInactiveStores">0</div></div></div>
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--low"><div class="stat-label">💧 Low Rain</div><div class="stat-value" id="cardLowRain">0</div></div></div>
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--medium"><div class="stat-label">🌧️ Medium Rain</div><div class="stat-value" id="cardMediumRain">0</div></div></div>
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--heavy"><div class="stat-label">⛈️ Heavy Rain</div><div class="stat-value" id="cardHeavyRain">0</div></div></div>
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--cost"><div class="stat-label">💰 Today's Running Cost</div><div class="stat-value" id="cardRunningCost">₹0</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--total clickable" id="cardBoxTotal"><div class="stat-label">🏬 Total Stores</div><div class="stat-value" id="cardTotalStores">0</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--active clickable" id="cardBoxActive"><div class="stat-label">🟢 Active Stores</div><div class="stat-value" id="cardActiveStores">0</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--inactive clickable" id="cardBoxInactive"><div class="stat-label">⚪ Inactive Stores</div><div class="stat-value" id="cardInactiveStores">0</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--low clickable" id="cardBoxLow"><div class="stat-label">💧 Low Rain</div><div class="stat-value" id="cardLowRain">0</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--medium clickable" id="cardBoxMedium"><div class="stat-label">🌧️ Medium Rain</div><div class="stat-value" id="cardMediumRain">0</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--heavy clickable" id="cardBoxHeavy"><div class="stat-label">⛈️ Heavy Rain</div><div class="stat-value" id="cardHeavyRain">0</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--cost clickable" id="cardBoxCost"><div class="stat-label">💰 Today's Running Cost</div><div class="stat-value" id="cardRunningCost">₹0</div></div></div>
       <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--time"><div class="stat-label">🕐 Current Time</div><div class="stat-value" id="cardCurrentTime">--:--</div></div></div>
       <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--date"><div class="stat-label">📅 Current Date</div><div class="stat-value" id="cardCurrentDate">--</div></div></div>
-      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--weather"><div class="stat-label">🌦️ Last Weather Update</div><div class="stat-value" id="cardLastWeatherUpdate">--</div></div></div>
+      <div class="col-6 col-md-3 col-xl-2"><div class="stat-card stat-card--weather clickable" id="cardBoxWeather"><div class="stat-label">🌦️ Last Weather Update</div><div class="stat-value" id="cardLastWeatherUpdate">--</div></div></div>
       <div class="col-6 col-md-3 col-xl-2">
         <button id="activeStoreCountBtn" class="stat-card stat-card-button stat-card--active w-100 h-100">0 Active Stores</button>
       </div>
@@ -157,6 +157,17 @@
         </thead>
         <tbody id="dailyReportBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ===================== METRIC DRILLDOWN OFFCANVAS ===================== -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="metricDrilldownOffcanvas">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="metricDrilldownTitle">Stores</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <div id="metricDrilldownList" class="list-group list-group-flush"></div>
     </div>
   </div>
 
