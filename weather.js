@@ -20,13 +20,23 @@ const Weather = (() => {
    * is still stored server-side in WeatherCache and the exported CSV, in
    * case it's useful later — this only simplifies what's DISPLAYED here.
    *
-   * Classification rules, checked in this order:
-   *   1. Thunderstorm — the provider's raw condition text mentions thunder
-   *      (takes priority even if rainfall reads 0 at this exact instant).
-   *   2. Raining      — measurable rainfall (> 0 mm) right now.
-   *   3. Cloudy       — no rain, but cloud cover is high (>= 50%) or the
-   *      raw text mentions cloud/overcast/mist/fog/haze.
-   *   4. Clear        — none of the above.
+   * IMPORTANT: the provider's `rainfall` figure is accumulated over the
+   * current hour, not an instant reading — so it can stay positive for a
+   * while after rain has actually stopped and the sky has cleared to mist
+   * or cloud. The provider's condition TEXT updates far closer to
+   * real-time, so it's checked first; rainfall is only a fallback for
+   * condition text that doesn't explicitly say "rain." Mist/fog/haze are
+   * explicitly never counted as rain, even if a trailing rainfall number
+   * is still positive.
+   *
+   * Checked in this order:
+   *   1. Thunderstorm — condition text mentions thunder.
+   *   2. Cloudy       — condition text mentions mist/fog/haze (never rain).
+   *   3. Raining      — condition text explicitly mentions rain/drizzle/
+   *      shower, OR (as a fallback) rainfall is at least 0.5mm.
+   *   4. Cloudy       — no rain, but cloud cover is high (>= 50%) or the
+   *      text mentions cloud/overcast.
+   *   5. Clear        — none of the above.
    */
   function classify(weather) {
     const rainfall = weather.rainfall ?? 0;
@@ -34,8 +44,10 @@ const Weather = (() => {
     const raw = (weather.condition || "").toLowerCase();
 
     if (raw.includes("thunder")) return "Thunderstorm";
-    if (rainfall > 0) return "Raining";
-    if (cloudCover >= 50 || /cloud|overcast|mist|fog|haze/.test(raw)) return "Cloudy";
+    if (/mist|fog|haze/.test(raw)) return "Cloudy";
+    if (/rain|drizzle|shower/.test(raw)) return "Raining";
+    if (rainfall >= 0.5) return "Raining"; // fallback for condition text that doesn't say "rain" outright
+    if (cloudCover >= 50 || /cloud|overcast/.test(raw)) return "Cloudy";
     return "Clear";
   }
 
@@ -60,7 +72,7 @@ const Weather = (() => {
       windSpeed: `${Math.round(weather.windSpeed ?? 0)} km/h`,
       cloudCover: `${Math.round(weather.cloudCover ?? 0)}%`,
       lastUpdated: weather.lastUpdated || null,
-      isRaining: (weather.rainfall ?? 0) > 0,
+      isRaining: label === "Raining" || label === "Thunderstorm",
     };
   }
 
@@ -75,7 +87,7 @@ const Weather = (() => {
    * indefinitely.
    */
   function checkRainStopped(store, weather) {
-    const stopped = !weather || (weather.rainfall ?? 0) === 0;
+    const stopped = !weather || !(classify(weather) === "Raining" || classify(weather) === "Thunderstorm");
     const card = document.querySelector(`[data-store-code="${store.storeCode}"]`);
     if (!card) return;
 
