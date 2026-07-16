@@ -261,6 +261,7 @@ const Dashboard = (() => {
                 : `<span class="text-muted">Weather pending…</span>`
             }
           </div>
+          ${w?.forecastNote ? `<div class="forecast-note">${w.forecastNote}</div>` : ""}
           <div class="coords text-muted small">Lat ${store.latitude}, Lon ${store.longitude}</div>
 
           <hr/>
