@@ -15,39 +15,59 @@ const Weather = (() => {
   /**
    * By design, the dashboard only ever shows one of exactly FOUR states —
    * Clear, Cloudy, Raining, Thunderstorm — never the weather provider's
-   * raw description (Mist, Patchy rain nearby, Overcast, etc.), which was
-   * reported as confusing for quick scanning. The full raw condition text
-   * is still stored server-side in WeatherCache and the exported CSV, in
-   * case it's useful later — this only simplifies what's DISPLAYED here.
+   * raw description verbatim. The full raw text is still stored
+   * server-side in WeatherCache and the exported CSV.
    *
-   * IMPORTANT: the provider's `rainfall` figure is accumulated over the
-   * current hour, not an instant reading — so it can stay positive for a
-   * while after rain has actually stopped and the sky has cleared to mist
-   * or cloud. The provider's condition TEXT updates far closer to
-   * real-time, so it's checked first; rainfall is only a fallback for
-   * condition text that doesn't explicitly say "rain." Mist/fog/haze are
-   * explicitly never counted as rain, even if a trailing rainfall number
-   * is still positive.
-   *
-   * Checked in this order:
-   *   1. Thunderstorm — condition text mentions thunder.
-   *   2. Cloudy       — condition text mentions mist/fog/haze (never rain).
-   *   3. Raining      — condition text explicitly mentions rain/drizzle/
-   *      shower, OR (as a fallback) rainfall is at least 0.5mm.
-   *   4. Cloudy       — no rain, but cloud cover is high (>= 50%) or the
-   *      text mentions cloud/overcast.
-   *   5. Clear        — none of the above.
+   * This is now driven ENTIRELY by the provider's condition TEXT via an
+   * explicit lookup table covering every text WeatherAPI.com can return —
+   * not by the rainfall (mm) figure. That's a deliberate fix: rainfall is
+   * accumulated over the current clock hour, so it can stay positive for
+   * a while after rain has actually stopped, and can still read near-zero
+   * for the first few minutes after rain has actually started — using it
+   * to override the condition text was causing exactly the "shows
+   * Raining when it's actually stopped, shows Cloudy when it's actually
+   * raining" symptom. The condition text itself is the provider's own
+   * real-time determination and is now the sole source of truth; rainfall
+   * is only ever displayed as a supporting number, never used to decide
+   * the label.
    */
-  function classify(weather) {
-    const rainfall = weather.rainfall ?? 0;
-    const cloudCover = weather.cloudCover ?? 0;
-    const raw = (weather.condition || "").toLowerCase();
+  const CONDITION_MAP = {
+    "sunny": "Clear", "clear": "Clear",
+    "partly cloudy": "Cloudy", "cloudy": "Cloudy", "overcast": "Cloudy",
+    "mist": "Cloudy", "fog": "Cloudy", "freezing fog": "Cloudy",
+    "blowing snow": "Cloudy", "blizzard": "Cloudy", "patchy snow possible": "Cloudy",
+    "patchy light snow": "Cloudy", "light snow": "Cloudy", "patchy moderate snow": "Cloudy",
+    "moderate snow": "Cloudy", "patchy heavy snow": "Cloudy", "heavy snow": "Cloudy",
+    "light snow showers": "Cloudy", "moderate or heavy snow showers": "Cloudy",
+    "patchy rain possible": "Raining", "patchy sleet possible": "Raining",
+    "patchy freezing drizzle possible": "Raining",
+    "patchy light drizzle": "Raining", "light drizzle": "Raining",
+    "freezing drizzle": "Raining", "heavy freezing drizzle": "Raining",
+    "patchy light rain": "Raining", "light rain": "Raining",
+    "moderate rain at times": "Raining", "moderate rain": "Raining",
+    "heavy rain at times": "Raining", "heavy rain": "Raining",
+    "light freezing rain": "Raining", "moderate or heavy freezing rain": "Raining",
+    "light sleet": "Raining", "moderate or heavy sleet": "Raining",
+    "ice pellets": "Raining",
+    "light rain shower": "Raining", "moderate or heavy rain shower": "Raining",
+    "torrential rain shower": "Raining",
+    "light sleet showers": "Raining", "moderate or heavy sleet showers": "Raining",
+    "light showers of ice pellets": "Raining", "moderate or heavy showers of ice pellets": "Raining",
+    "thundery outbreaks possible": "Thunderstorm",
+    "patchy light rain with thunder": "Thunderstorm", "moderate or heavy rain with thunder": "Thunderstorm",
+    "patchy light snow with thunder": "Thunderstorm", "moderate or heavy snow with thunder": "Thunderstorm",
+  };
 
+  function classify(weather) {
+    const raw = (weather.condition || "").trim().toLowerCase();
+    if (CONDITION_MAP[raw]) return CONDITION_MAP[raw];
+
+    // Defensive fallback ONLY for text not in the table above (e.g. a
+    // different provider than WeatherAPI.com) — still text-driven, never
+    // falls back to the rainfall number.
     if (raw.includes("thunder")) return "Thunderstorm";
-    if (/mist|fog|haze/.test(raw)) return "Cloudy";
-    if (/rain|drizzle|shower/.test(raw)) return "Raining";
-    if (rainfall >= 0.5) return "Raining"; // fallback for condition text that doesn't say "rain" outright
-    if (cloudCover >= 50 || /cloud|overcast/.test(raw)) return "Cloudy";
+    if (/rain|drizzle|shower|sleet|ice pellet/.test(raw)) return "Raining";
+    if (/mist|fog|haze|cloud|overcast|snow/.test(raw)) return "Cloudy";
     return "Clear";
   }
 
@@ -73,6 +93,7 @@ const Weather = (() => {
       cloudCover: `${Math.round(weather.cloudCover ?? 0)}%`,
       lastUpdated: weather.lastUpdated || null,
       isRaining: label === "Raining" || label === "Thunderstorm",
+      forecastNote: weather.forecastNote || null,
     };
   }
 
