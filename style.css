@@ -150,11 +150,16 @@ body {
 .forecast-note {
   margin-top: .4rem;
   font-size: .78rem;
-  color: var(--warn);
-  background: rgba(227, 164, 56, 0.12);
-  border: 1px solid rgba(227, 164, 56, 0.35);
+  color: var(--text-muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: .3rem .55rem;
+}
+.forecast-note--alert {
+  color: var(--warn);
+  background: rgba(227, 164, 56, 0.12);
+  border-color: rgba(227, 164, 56, 0.35);
 }
 
 .timer-display {
