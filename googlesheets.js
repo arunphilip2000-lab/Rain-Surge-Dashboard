@@ -1,225 +1,98 @@
 /**
- * style.css
+ * googleSheets.js
  * ---------------------------------------------------------------------------
- * Design direction: this is an ops-monitoring tool watched for hours at a
- * stretch by store/TL teams, often on a shared screen or a phone in the
- * field — so it leans dark (low glare, long-session comfort), with a
- * "storm sky" palette (deep slate/navy) and a single desaturated teal
- * accent that reads as "water/rain" without being a literal weather-app
- * cliché. Status is colour-coded consistently: teal = active/live,
- * amber = warning/expiring, red = alert (rain stopped).
+ * Thin client for the Apps Script Web App API. Google Sheets is the only
+ * database — every function here either reads the current sheet-backed
+ * state or writes a single action, which the server applies to the sheet.
+ *
+ * Transport notes:
+ *  - GET is used for reads (?action=...&...params).
+ *  - POST is used for writes. Body is sent as text/plain (NOT
+ *    application/json) on purpose: Apps Script Web Apps reject the CORS
+ *    preflight for application/json from a foreign origin, but a
+ *    text/plain POST is a "simple request" that skips preflight entirely.
+ *    The server (Code.gs) parses e.postData.contents as JSON manually.
  * ---------------------------------------------------------------------------
  */
 
-:root, :root[data-theme="dark"] {
-  --bg: #0F1720;
-  --panel: #16212C;
-  --panel-2: #1C2A38;
-  --border: #263544;
-  --text: #E7EDF3;
-  --text-muted: #8FA0B3;
-  --accent: #2FB8A6;
-  --accent-2: #4C8DFF;
-  --warn: #E3A438;
-  --danger: #E4574C;
-  --radius: 14px;
-}
+const GoogleSheetsAPI = (() => {
+  async function callGet(action, params = {}) {
+    const url = new URL(CONFIG.APPS_SCRIPT_URL);
+    url.searchParams.set("action", action);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-:root[data-theme="light"] {
-  --bg: #F3F6F9;
-  --panel: #FFFFFF;
-  --panel-2: #F1F4F8;
-  --border: #DCE4EC;
-  --text: #17222E;
-  --text-muted: #5C6C7C;
-  --accent: #128577;
-  --accent-2: #2F6FED;
-  --warn: #A66206;
-  --danger: #C0392B;
-  --radius: 14px;
-}
+    const res = await fetch(url.toString(), { method: "GET" });
+    if (!res.ok) throw new Error(`GET ${action} failed: ${res.status}`);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json.data;
+  }
 
-* { box-sizing: border-box; }
+  /**
+   * For GET endpoints that return a raw, non-JSON body (currently just
+   * exportCsv, which the server sends back as plain CSV text via
+   * ContentService — not JSON-wrapped like every other action). Using
+   * callGet() here would always fail, since res.json() can't parse CSV.
+   */
+  async function callGetRaw(action, params = {}) {
+    const url = new URL(CONFIG.APPS_SCRIPT_URL);
+    url.searchParams.set("action", action);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
-  min-height: 100vh;
-  transition: background .2s, color .2s;
-}
-[data-theme="dark"] body {
-  background: radial-gradient(1200px 600px at 10% -10%, #16222E 0%, var(--bg) 55%);
-}
+    const res = await fetch(url.toString(), { method: "GET" });
+    if (!res.ok) throw new Error(`GET ${action} failed: ${res.status}`);
+    return res.text();
+  }
 
-/* ------------------------------------------------------------- login ---- */
-.login-overlay {
-  position: fixed; inset: 0; z-index: 2000;
-  background: rgba(9, 14, 20, 0.92);
-  backdrop-filter: blur(6px);
-}
-[data-theme="light"] .login-overlay { background: rgba(243, 246, 249, 0.92); }
-.login-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2.5rem 3rem;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-}
-.brand-mark { font-size: 2.5rem; }
+  async function callPost(action, payload = {}) {
+    const body = JSON.stringify({ action, ...payload });
+    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body,
+    });
+    if (!res.ok) throw new Error(`POST ${action} failed: ${res.status}`);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json.data;
+  }
 
-/* ------------------------------------------------------------ navbar ---- */
-.app-navbar {
-  background: linear-gradient(90deg, #0E1A24, #14232F);
-  border-bottom: 1px solid var(--border);
-  padding-top: .75rem;
-  padding-bottom: .75rem;
-}
-[data-theme="light"] .app-navbar { background: linear-gradient(90deg, #FFFFFF, #F3F6F9); }
-[data-theme="light"] .app-navbar .navbar-brand,
-[data-theme="light"] .app-navbar .text-light { color: var(--text) !important; }
+  return {
+    /** Full dashboard snapshot: stores, active sessions, config, weather cache. */
+    getState: () => callGet("getState"),
 
-/* ---------------------------------------------------------- panels ------ */
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
+    /** Master store list (City, Store Name, Store Code, Lat, Lon). */
+    getStores: () => callGet("getStores"),
 
-/* ------------------------------------------------------- summary cards -- */
-.stat-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--card-accent, var(--border));
-  border-radius: var(--radius);
-  padding: .9rem 1rem;
-  height: 100%;
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.22);
-}
-.stat-card.clickable { cursor: pointer; }
-.stat-card.clickable:hover { border-color: var(--card-accent, var(--accent)); }
-.stat-label { color: var(--text-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
-.stat-value { font-size: 1.5rem; font-weight: 700; margin-top: .15rem; }
+    /** Weather cache for a given store code (server refreshes this every 5 min). */
+    getWeather: (storeCode) => callGet("getWeather", { storeCode }),
 
-/* Each card gets its own accent — chosen to carry meaning, not just
-   decoration: rain severity runs cool -> warm as it gets more serious,
-   active/inactive get their own distinct identity, and the remaining
-   informational cards (time, date, cost, weather) each get a distinct
-   hue so the row reads as lively rather than one repeated color block. */
-.stat-card--total    { --card-accent: #4C8DFF; }
-.stat-card--active   { --card-accent: #2FB8A6; }
-.stat-card--active .stat-value { color: #2FB8A6; }
-.stat-card--inactive { --card-accent: #8FA0B3; }
-.stat-card--low      { --card-accent: #5DADE2; }
-.stat-card--low .stat-value { color: #5DADE2; }
-.stat-card--medium   { --card-accent: #E3A438; }
-.stat-card--medium .stat-value { color: #E3A438; }
-.stat-card--heavy    { --card-accent: #E4574C; }
-.stat-card--heavy .stat-value { color: #E4574C; }
-.stat-card--cost     { --card-accent: #F4B400; }
-.stat-card--time     { --card-accent: #48C9B0; }
-.stat-card--date     { --card-accent: #8B7FE8; }
-.stat-card--weather  { --card-accent: #EC6BA1; }
+    /** Turn Rain Surge ON for a store — creates one row in the sheet. */
+    rainOn: (payload) => callPost("rainOn", payload),
 
-.stat-card-button {
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color .15s ease, transform .15s ease;
-}
-.stat-card-button:hover { border-color: var(--accent); transform: translateY(-1px); }
+    /** Turn Rain Surge OFF for a store — updates the existing open row. */
+    rainOff: (payload) => callPost("rainOff", payload),
 
-/* -------------------------------------------------------------- charts -- */
-.chart-box { position: relative; height: 220px; }
+    /** Manually request the CSV export (mirrors the auto-generated one). */
+    exportCsv: () => callGetRaw("exportCsv"),
 
-/* ---------------------------------------------------------- store cards - */
-.store-card {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  transition: border-color .2s ease, box-shadow .2s ease;
-}
-.store-card.border-active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(47,184,166,0.25); }
+    /** Server-side log line for an audit/notification event. */
+    logEvent: (payload) => callPost("logEvent", payload),
 
-.weather-row { display: flex; flex-wrap: wrap; gap: .6rem; font-size: .82rem; color: var(--text-muted); }
-.coords { margin-top: .25rem; font-size: .75rem; }
-.forecast-note {
-  margin-top: .4rem;
-  font-size: .78rem;
-  color: var(--text-muted);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: .3rem .55rem;
-}
-.forecast-note--alert {
-  color: var(--warn);
-  background: rgba(227, 164, 56, 0.12);
-  border-color: rgba(227, 164, 56, 0.35);
-}
+    /** Simple self-declared name/email login — logs access to the Logins sheet. */
+    login: (name, email, userAgent) => callPost("login", { name, email, userAgent }),
 
-.timer-display {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--accent);
-  margin-bottom: .25rem;
-}
-.timer-display.timer-expiring { color: var(--warn); animation: pulse 1s infinite; }
+    /** Recent access log (most recent first), for the "Access Log" panel. */
+    getLogins: () => callGet("getLogins"),
 
-.rain-stop-banner {
-  background: rgba(228, 87, 76, 0.16);
-  color: #FFB4AD;
-  border: 1px solid var(--danger);
-  border-radius: 8px;
-  padding: .4rem .6rem;
-  font-size: .78rem;
-  margin-bottom: .6rem;
-}
-[data-theme="light"] .rain-stop-banner { color: #8E241A; }
-.rain-stopped-alert { border-color: var(--danger) !important; animation: pulse 1.4s infinite; }
+    /** Total cost + session count per day (all time, newest first). */
+    getDailyReport: () => callGet("getDailyReport"),
 
-.flash-highlight { animation: flash 1s ease-in-out 2; }
+    /** Manually (re)send today's per-city report emails — same path midnight uses. */
+    sendReportEmail: () => callPost("sendReportEmail", {}),
 
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(228,87,76,0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(228,87,76,0); }
-}
-@keyframes flash {
-  0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(76,141,255,0.18); }
-}
-
-/* -------------------------------------------------------------- misc ---- */
-/* Bootstrap's .text-muted hardcodes a fixed grey (#6c757d) that ignores
-   our theme variables entirely — this is what made store code/city and
-   coordinate text hard to read in dark mode. Override it to always use
-   the theme-aware muted color instead. */
-.text-muted { color: var(--text-muted) !important; }
-
-.form-select, .form-control {
-  background-color: var(--panel-2);
-  border-color: var(--border);
-  color: var(--text);
-}
-.form-select:focus, .form-control:focus {
-  background-color: var(--panel-2);
-  color: var(--text);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 .2rem rgba(47,184,166,0.2);
-}
-.offcanvas { background: var(--panel); color: var(--text); }
-
-.modal-content { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
-.modal-header { border-bottom-color: var(--border); }
-[data-theme="dark"] .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
-.list-group-item { background: transparent; color: var(--text); border-color: var(--border); }
-.list-group-item-action:hover { background: var(--panel-2); }
-
-@media (max-width: 576px) {
-  .stat-value { font-size: 1.2rem; }
-  .login-card { padding: 2rem 1.5rem; }
-}
+    /** Resend the report for a SPECIFIC past date (yyyy-MM-dd) — the
+     *  recovery path for when the automatic 12:30 AM run was missed. */
+    sendReportEmailForDate: (date) => callPost("sendReportEmailForDate", { date }),
+  };
+})();
