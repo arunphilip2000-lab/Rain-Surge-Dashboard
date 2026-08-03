@@ -31,6 +31,33 @@ const Weather = (() => {
    * is only ever displayed as a supporting number, never used to decide
    * the label.
    */
+  /**
+   * IMPORTANT FIX: any condition text containing "possible" (Patchy rain
+   * possible, Thundery outbreaks possible, Patchy sleet possible, Patchy
+   * freezing drizzle possible) is the provider's own probabilistic
+   * phrasing — it means "there's a scattered/patchy CHANCE of this
+   * nearby," not "this is definitely happening at this exact point right
+   * now." Treating these as a confirmed "Raining"/"Thunderstorm" was
+   * overclaiming — this was the actual cause of "shows Raining when it
+   * clearly isn't." They're now classified as Cloudy: an honest read that
+   * doesn't overclaim rain that isn't actually falling at this location.
+   */
+  /**
+   * SECOND FIX (found from a real ground-truth report): the provider can
+   * label something "Drizzle" or even "Rain" while the actual measured
+   * amount is tiny (e.g. 0.2mm) — meteorologically accurate, but not what
+   * "raining" means operationally on the ground, and not perceptible to a
+   * TL standing at the store. Two changes to fix this:
+   *   1. Drizzle is reclassified as Cloudy outright — it's definitionally
+   *      very light/misty precipitation, not what delivery ops mean by
+   *      "raining."
+   *   2. Any condition that DOES map to "Raining" also now needs a real
+   *      measured rainfall amount (>= MIN_RAINFALL_MM) to actually count
+   *      — a "rain" label with a negligible measured amount is
+   *      downgraded to Cloudy rather than shown as Raining.
+   */
+  const MIN_RAINFALL_MM = 0.3;
+
   const CONDITION_MAP = {
     "sunny": "Clear", "clear": "Clear",
     "partly cloudy": "Cloudy", "cloudy": "Cloudy", "overcast": "Cloudy",
@@ -39,10 +66,10 @@ const Weather = (() => {
     "patchy light snow": "Cloudy", "light snow": "Cloudy", "patchy moderate snow": "Cloudy",
     "moderate snow": "Cloudy", "patchy heavy snow": "Cloudy", "heavy snow": "Cloudy",
     "light snow showers": "Cloudy", "moderate or heavy snow showers": "Cloudy",
-    "patchy rain possible": "Raining", "patchy sleet possible": "Raining",
-    "patchy freezing drizzle possible": "Raining",
-    "patchy light drizzle": "Raining", "light drizzle": "Raining",
-    "freezing drizzle": "Raining", "heavy freezing drizzle": "Raining",
+    "patchy rain possible": "Cloudy", "patchy sleet possible": "Cloudy",
+    "patchy freezing drizzle possible": "Cloudy", "thundery outbreaks possible": "Cloudy",
+    "patchy light drizzle": "Cloudy", "light drizzle": "Cloudy",
+    "freezing drizzle": "Cloudy", "heavy freezing drizzle": "Cloudy",
     "patchy light rain": "Raining", "light rain": "Raining",
     "moderate rain at times": "Raining", "moderate rain": "Raining",
     "heavy rain at times": "Raining", "heavy rain": "Raining",
@@ -53,22 +80,37 @@ const Weather = (() => {
     "torrential rain shower": "Raining",
     "light sleet showers": "Raining", "moderate or heavy sleet showers": "Raining",
     "light showers of ice pellets": "Raining", "moderate or heavy showers of ice pellets": "Raining",
-    "thundery outbreaks possible": "Thunderstorm",
     "patchy light rain with thunder": "Thunderstorm", "moderate or heavy rain with thunder": "Thunderstorm",
     "patchy light snow with thunder": "Thunderstorm", "moderate or heavy snow with thunder": "Thunderstorm",
   };
 
   function classify(weather) {
     const raw = (weather.condition || "").trim().toLowerCase();
-    if (CONDITION_MAP[raw]) return CONDITION_MAP[raw];
+    const rainfall = weather.rainfall ?? 0;
+    let bucket = CONDITION_MAP[raw];
 
-    // Defensive fallback ONLY for text not in the table above (e.g. a
-    // different provider than WeatherAPI.com) — still text-driven, never
-    // falls back to the rainfall number.
-    if (raw.includes("thunder")) return "Thunderstorm";
-    if (/rain|drizzle|shower|sleet|ice pellet/.test(raw)) return "Raining";
-    if (/mist|fog|haze|cloud|overcast|snow/.test(raw)) return "Cloudy";
-    return "Clear";
+    if (!bucket) {
+      // Defensive fallback ONLY for text not in the table above (e.g. a
+      // different provider than WeatherAPI.com) — still text-driven,
+      // never trusts the rainfall number over the text. "possible" is
+      // excluded from the rain/thunder match for the same reason as the
+      // table above — it's probabilistic phrasing, not a confirmed
+      // current observation. Drizzle wording falls through to the Cloudy
+      // check below, same as the table.
+      if (!raw.includes("possible")) {
+        if (raw.includes("thunder")) bucket = "Thunderstorm";
+        else if (!raw.includes("drizzle") && /rain|shower|sleet|ice pellet/.test(raw)) bucket = "Raining";
+      }
+      if (!bucket) bucket = /mist|fog|haze|cloud|overcast|snow|drizzle/.test(raw) ? "Cloudy" : "Clear";
+    }
+
+    // Corroboration check: a "Raining" label still needs a real measured
+    // amount — a condition text saying rain with a negligible measured
+    // figure (e.g. 0.2mm) gets downgraded to Cloudy, since that's not
+    // what "raining" means operationally on the ground.
+    if (bucket === "Raining" && rainfall < MIN_RAINFALL_MM) bucket = "Cloudy";
+
+    return bucket;
   }
 
   function iconFor(label) {
