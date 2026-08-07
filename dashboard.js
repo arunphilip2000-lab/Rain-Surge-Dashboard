@@ -231,6 +231,28 @@ const Dashboard = (() => {
   }
 
   // ----------------------------------------------------------- store cards
+  function hourlyBarsHtml(hourlySeries) {
+    if (!hourlySeries || !hourlySeries.length) return "";
+    return `
+      <div class="hourly-forecast">
+        <div class="hourly-forecast-label">RAIN CHANCE, NEXT HOURS</div>
+        <div class="hourly-bars">
+          ${hourlySeries
+            .map(
+              (h) => `
+            <div class="hourly-bar-col">
+              <div class="hourly-bar-pct">${h.chance}</div>
+              <div class="hourly-bar-track"><div class="hourly-bar-fill" style="height:${Math.max(4, h.chance)}%"></div></div>
+            </div>`
+            )
+            .join("")}
+        </div>
+        <div class="hourly-bar-hours">
+          ${hourlySeries.map((h) => `<span>${h.hour}h</span>`).join("")}
+        </div>
+      </div>`;
+  }
+
   function storeCardHtml(store) {
     const session = state.sessions[store.storeCode];
     const w = Weather.format(state.weather[store.storeCode]);
@@ -245,7 +267,7 @@ const Dashboard = (() => {
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <h6 class="mb-0">${store.storeName}</h6>
-              <small class="text-muted">${store.storeCode} · ${store.city}</small>
+              <small class="text-muted">${store.city.toUpperCase()} · ${store.storeCode}</small>
             </div>
             <div class="d-flex align-items-center gap-2">
               <button class="btn btn-sm btn-outline-secondary py-0 px-2" data-action="buzz" data-store="${store.storeCode}" title="Ring buzzer for 10 seconds">🔔</button>
@@ -253,14 +275,24 @@ const Dashboard = (() => {
             </div>
           </div>
 
-          <div class="weather-row mt-2">
-            ${
-              w
-                ? `<span>${w.icon} ${w.condition}</span><span>${w.temperature}</span>
-                   <span>💧${w.rainfall}</span><span>💦${w.humidity}</span><span>🌬️${w.windSpeed}</span>`
-                : `<span class="text-muted">Weather pending…</span>`
-            }
-          </div>
+          ${
+            w
+              ? `
+            <div class="weather-hero mt-2">
+              <div class="weather-hero-temp">${w.temperatureRaw}°</div>
+              <div class="weather-hero-stats">
+                <div><span class="stat-label">PRECIP NOW</span><span class="stat-value">${w.rainfall}</span></div>
+                <div><span class="stat-label">RAIN CHANCE</span><span class="stat-value">${w.rainChanceNow != null ? w.rainChanceNow + "%" : "—"}</span></div>
+              </div>
+            </div>
+            <div class="weather-hero-condition">${w.icon} ${w.condition}</div>
+            <div class="weather-row">
+              <span>💦${w.humidity}</span><span>🌬️${w.windSpeed}</span><span>☁️${w.cloudCover}</span>
+            </div>
+            ${hourlyBarsHtml(w.hourlySeries)}
+          `
+              : `<div class="weather-row mt-2"><span class="text-muted">Weather pending…</span></div>`
+          }
           ${w?.forecastNote ? `<div class="forecast-note${/⚠️|🌤️/.test(w.forecastNote) ? " forecast-note--alert" : ""}">${w.forecastNote}</div>` : ""}
           <div class="coords text-muted small">Lat ${store.latitude}, Lon ${store.longitude}</div>
 
@@ -296,7 +328,7 @@ const Dashboard = (() => {
             <button class="btn btn-primary btn-sm w-100" data-action="rainOn" data-store="${store.storeCode}">Rain Surge ON</button>
           `
           }
-          <div class="text-muted small mt-2">Last Updated: ${session?.lastUpdated ? new Date(session.lastUpdated).toLocaleTimeString("en-IN") : "—"}</div>
+          <div class="text-muted small mt-2">Updated: ${w?.lastUpdated ? new Date(w.lastUpdated).toLocaleTimeString("en-IN") : "—"}</div>
         </div>
       </div>
     </div>`;
