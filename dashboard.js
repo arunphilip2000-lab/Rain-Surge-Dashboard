@@ -302,7 +302,7 @@ const Dashboard = (() => {
             isActive
               ? `
             <div class="d-flex justify-content-between small mb-1">
-              <span>${CONFIG.RAIN_CATEGORIES[category]?.label ?? category}</span>
+              <span>${CONFIG.RAIN_CATEGORIES[category]?.label ?? category}${session.employeeName === "System (Auto)" ? ' <span class="badge bg-info text-dark ms-1" title="Started automatically by weather detection">🤖 Auto</span>' : ""}</span>
               <span>Rate ${money(rate)}</span>
             </div>
             <div class="timer-display" data-timer-for="${store.storeCode}">—</div>
