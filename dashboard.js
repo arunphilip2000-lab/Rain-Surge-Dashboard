@@ -121,6 +121,10 @@ const Dashboard = (() => {
     const inactive = total - active;
     const byCategory = { LOW: 0, MEDIUM: 0, HEAVY: 0 };
     let runningCost = 0;
+    const nearbyRainCount = state.stores.filter((s) => {
+      const src = state.weather[s.storeCode]?.areaRainSource;
+      return src && src !== "center";
+    }).length;
 
     activeSessions.forEach((s) => {
       if (byCategory[s.category] !== undefined) byCategory[s.category]++;
@@ -137,6 +141,7 @@ const Dashboard = (() => {
     set("cardLowRain", byCategory.LOW);
     set("cardMediumRain", byCategory.MEDIUM);
     set("cardHeavyRain", byCategory.HEAVY);
+    set("cardNearbyRain", nearbyRainCount);
     set("cardRunningCost", money(runningCost));
     set("cardLastWeatherUpdate", state.lastWeatherUpdate || "—");
 
@@ -294,6 +299,7 @@ const Dashboard = (() => {
               : `<div class="weather-row mt-2"><span class="text-muted">Weather pending…</span></div>`
           }
           ${w?.forecastNote ? `<div class="forecast-note${/⚠️|🌤️/.test(w.forecastNote) ? " forecast-note--alert" : ""}">${w.forecastNote}</div>` : ""}
+          ${w?.areaRainNote ? `<div class="forecast-note forecast-note--alert">${w.areaRainNote}</div>` : ""}
           <div class="coords text-muted small">Lat ${store.latitude}, Lon ${store.longitude}</div>
 
           <hr/>
@@ -375,6 +381,53 @@ const Dashboard = (() => {
     new bootstrap.Offcanvas(document.getElementById("metricDrilldownOffcanvas")).show();
   }
 
+  /** Fetches and renders store-wise + city-wise total Rain Surge amounts
+   *  for today, grouped by city (city subtotal header, then its stores
+   *  underneath) — into the same drilldown panel used elsewhere, since
+   *  this needs a richer grouped layout than the flat list format. */
+  async function showTotalSurgeReport() {
+    const title = document.getElementById("metricDrilldownTitle");
+    const list = document.getElementById("metricDrilldownList");
+    title.textContent = "Total Rain Surge — Today";
+    list.innerHTML = `<div class="p-3 text-muted small">Loading…</div>`;
+    new bootstrap.Offcanvas(document.getElementById("metricDrilldownOffcanvas")).show();
+
+    try {
+      const report = await GoogleSheetsAPI.getStoreCityTotals();
+      title.textContent = `Total Rain Surge — Today (${money(report.grandTotal)})`;
+
+      if (!report.cities.length) {
+        list.innerHTML = `<div class="p-3 text-muted small">No Rain Surge sessions recorded today yet.</div>`;
+        return;
+      }
+
+      list.innerHTML = report.cities
+        .map((city) => {
+          const citiesStores = report.stores.filter((s) => s.city === city.city);
+          return `
+          <div class="list-group-item bg-body-tertiary fw-semibold d-flex justify-content-between">
+            <span>${city.city} <span class="text-muted small fw-normal">(${city.storeCount} store${city.storeCount === 1 ? "" : "s"}, ${city.sessionCount} session${city.sessionCount === 1 ? "" : "s"})</span></span>
+            <span>${money(city.totalAmount)}</span>
+          </div>
+          ${citiesStores
+            .map(
+              (s) => `
+            <button class="list-group-item list-group-item-action ps-4" data-scroll-to="${s.storeCode}">
+              <div class="d-flex justify-content-between align-items-center">
+                <span>${s.storeName} (${s.storeCode})</span>
+                <span class="text-muted small ms-2">${money(s.totalAmount)}${s.sessionCount > 1 ? ` · ${s.sessionCount} sessions` : ""}</span>
+              </div>
+            </button>`
+            )
+            .join("")}
+        `;
+        })
+        .join("");
+    } catch (err) {
+      list.innerHTML = `<div class="p-3 text-danger small">Failed to load: ${err.message}</div>`;
+    }
+  }
+
   function topRainiestStores(limit = 10) {
     return [...state.stores]
       .map((s) => ({ ...s, rainfall: state.weather[s.storeCode]?.rainfall ?? 0 }))
@@ -413,6 +466,25 @@ const Dashboard = (() => {
         city: s.city,
         meta: new Date(state.weather[s.storeCode].lastUpdated).toLocaleTimeString("en-IN"),
       }));
+  }
+
+  const DIRECTION_LABEL = { N: "3km North", S: "3km South", E: "3km East", W: "3km West" };
+
+  function storesByNearbyRain() {
+    return state.stores
+      .filter((s) => {
+        const src = state.weather[s.storeCode]?.areaRainSource;
+        return src && src !== "center";
+      })
+      .map((s) => {
+        const w = state.weather[s.storeCode];
+        return {
+          storeCode: s.storeCode,
+          storeName: s.storeName,
+          city: s.city,
+          meta: `${DIRECTION_LABEL[w.areaRainSource] || w.areaRainSource} · ${(w.rainfall ?? 0).toFixed(1)} mm`,
+        };
+      });
   }
 
   function renderActiveList(activeSessions) {
@@ -466,9 +538,7 @@ const Dashboard = (() => {
 
   // ---------------------------------------------------------------- wiring
   function wireStaticUi() {
-    document.getElementById("cardBoxTotal")?.addEventListener("click", () =>
-      showMetricDrilldown("Top 10 Stores by Rainfall", topRainiestStores(10))
-    );
+    document.getElementById("cardBoxTotal")?.addEventListener("click", showTotalSurgeReport);
     document.getElementById("cardBoxActive")?.addEventListener("click", () =>
       document.getElementById("activeStoreCountBtn")?.click()
     );
@@ -483,6 +553,9 @@ const Dashboard = (() => {
     );
     document.getElementById("cardBoxHeavy")?.addEventListener("click", () =>
       showMetricDrilldown("Heavy Rain Stores", storesByCategory("HEAVY"))
+    );
+    document.getElementById("cardBoxNearbyRain")?.addEventListener("click", () =>
+      showMetricDrilldown("Nearby Rain (3km) — Not At The Exact Store", storesByNearbyRain())
     );
     document.getElementById("cardBoxCost")?.addEventListener("click", () =>
       showMetricDrilldown("Cost Breakdown — Active Stores", storesByCostDesc())
