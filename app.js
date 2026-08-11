@@ -151,9 +151,30 @@ const App = (() => {
     };
   }
 
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * A single failed request doesn't necessarily mean the backend is
+   * actually broken — Apps Script has a concurrent-execution limit, and a
+   * momentary pile-up (e.g. the weather trigger mid-run) can cause an
+   * occasional request to fail even though everything is fine a second
+   * later. Retrying once, quietly, before assuming the worst avoids
+   * flashing the demo-mode banner for something that self-resolves.
+   */
+  async function getStateWithRetry() {
+    try {
+      return await GoogleSheetsAPI.getState();
+    } catch (err) {
+      await sleep(1500);
+      return await GoogleSheetsAPI.getState(); // let this one's error propagate if it also fails
+    }
+  }
+
   async function refresh() {
     try {
-      const state = await GoogleSheetsAPI.getState();
+      const state = await getStateWithRetry();
       Dashboard.setState(state);
       // The server only updates anyRainStopped when a weather refresh
       // actually runs (~every 2 minutes) — but we poll every 12 seconds,
@@ -165,6 +186,7 @@ const App = (() => {
         Dashboard.ringBuzzer();
         lastBuzzerWeatherUpdate = state.lastWeatherUpdate;
       }
+      demoModeNotified = false; // back to genuinely live — allow the notice to show again if this ever recurs
     } catch (err) {
       Dashboard.setState(buildDemoState());
       if (!demoModeNotified) {
