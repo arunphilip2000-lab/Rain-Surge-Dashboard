@@ -120,6 +120,8 @@ body {
 .stat-card--medium .stat-value { color: #E3A438; }
 .stat-card--heavy    { --card-accent: #E4574C; }
 .stat-card--heavy .stat-value { color: #E4574C; }
+.stat-card--nearby   { --card-accent: #B24DE6; }
+.stat-card--nearby .stat-value { color: #B24DE6; }
 .stat-card--cost     { --card-accent: #F4B400; }
 .stat-card--time     { --card-accent: #48C9B0; }
 .stat-card--date     { --card-accent: #8B7FE8; }
