@@ -87,6 +87,7 @@ const GoogleSheetsAPI = (() => {
 
     /** Total cost + session count per day (all time, newest first). */
     getDailyReport: () => callGet("getDailyReport"),
+    getStoreCityTotals: (date) => callGet("getStoreCityTotals", date ? { date } : {}),
 
     /** Manually (re)send today's per-city report emails — same path midnight uses. */
     sendReportEmail: () => callPost("sendReportEmail", {}),
