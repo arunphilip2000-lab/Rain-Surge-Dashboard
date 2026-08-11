@@ -37,6 +37,7 @@ const Charts = (() => {
   function initPie() {
     const ctx = document.getElementById("chartActiveInactive");
     if (!ctx) return;
+    pieChart?.destroy(); // guard against re-init (e.g. a retried login) reusing the same canvas
     pieChart = new Chart(ctx, {
       type: "doughnut",
       data: {
@@ -50,6 +51,7 @@ const Charts = (() => {
   function initBar() {
     const ctx = document.getElementById("chartCityCost");
     if (!ctx) return;
+    barChart?.destroy();
     barChart = new Chart(ctx, {
       type: "bar",
       data: { labels: [], datasets: [{ label: "Cost (₹)", data: [], backgroundColor: PALETTE.line }] },
@@ -60,6 +62,7 @@ const Charts = (() => {
   function initLine() {
     const ctx = document.getElementById("chartRainTrend");
     if (!ctx) return;
+    lineChart?.destroy();
     lineChart = new Chart(ctx, {
       type: "line",
       data: {
