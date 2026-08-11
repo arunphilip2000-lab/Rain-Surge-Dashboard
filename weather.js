@@ -45,7 +45,7 @@ const Weather = (() => {
     return "Clear";
   }
 
-  const DEFAULT_THRESHOLDS = { lowMax: 2.5, moderateMax: 7.5, highMax: 35 };
+  const DEFAULT_THRESHOLDS = { lowMax: 2.5, moderateMax: 7.5, highMax: 35, minRainfall: 0.5 };
 
   function intensityFromMm(mm, thresholds) {
     const t = thresholds || DEFAULT_THRESHOLDS;
@@ -67,7 +67,8 @@ const Weather = (() => {
     const bucket = bucketFromText(weather.condition);
     if (bucket !== "Raining") return { bucket, label: bucket };
 
-    if ((weather.rainfall ?? 0) <= 0) return { bucket: "Cloudy", label: "Cloudy" };
+    const minRainfall = (thresholds || DEFAULT_THRESHOLDS).minRainfall ?? DEFAULT_THRESHOLDS.minRainfall;
+    if ((weather.rainfall ?? 0) < minRainfall) return { bucket: "Cloudy", label: "Cloudy" };
 
     const intensity = intensityFromMm(weather.rainfall, thresholds);
     return { bucket, label: `${intensity} Rain`, intensity };
@@ -93,6 +94,13 @@ const Weather = (() => {
    *  @param {{lowMax:number, moderateMax:number, highMax:number}} [thresholds]
    *  - the current configurable mm bands from state.rainThresholds (falls
    *    back to the meteorological defaults if not supplied). */
+  const AREA_SOURCE_LABEL = { N: "north", S: "south", E: "east", W: "west" };
+
+  function areaRainNote(areaRainSource) {
+    if (!areaRainSource || areaRainSource === "center") return null;
+    return `📍 Rain detected ~3km ${AREA_SOURCE_LABEL[areaRainSource] || areaRainSource} — not at this exact spot`;
+  }
+
   function format(weather, thresholds) {
     if (!weather) return null;
     const { bucket, label } = classify(weather, thresholds);
@@ -110,6 +118,7 @@ const Weather = (() => {
       forecastNote: weather.forecastNote || null,
       rainChanceNow: weather.rainChanceNow ?? null,
       hourlySeries: parseHourlySeries(weather.hourlySeries),
+      areaRainNote: areaRainNote(weather.areaRainSource),
     };
   }
 
