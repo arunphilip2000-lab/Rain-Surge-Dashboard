@@ -255,7 +255,7 @@ const Dashboard = (() => {
 
   function storeCardHtml(store) {
     const session = state.sessions[store.storeCode];
-    const w = Weather.format(state.weather[store.storeCode]);
+    const w = Weather.format(state.weather[store.storeCode], state.rainThresholds);
     const isActive = session?.status === "ACTIVE";
     const category = session?.category || "";
     const rate = CONFIG.RAIN_CATEGORIES[category]?.rate ?? "";
