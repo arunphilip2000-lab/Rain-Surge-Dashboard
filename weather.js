@@ -42,18 +42,21 @@ const Weather = (() => {
     return "Clear";
   }
 
-  function intensityFromMm(mm) {
+  const DEFAULT_THRESHOLDS = { lowMax: 2.5, moderateMax: 7.5, highMax: 35 };
+
+  function intensityFromMm(mm, thresholds) {
+    const t = thresholds || DEFAULT_THRESHOLDS;
     const rainfall = mm ?? 0;
-    if (rainfall >= 35) return "Extreme";
-    if (rainfall >= 7.5) return "High";
-    if (rainfall >= 2.5) return "Moderate";
+    if (rainfall > t.highMax) return "Extreme";
+    if (rainfall > t.moderateMax) return "High";
+    if (rainfall > t.lowMax) return "Moderate";
     return "Low";
   }
 
-  function classify(weather) {
+  function classify(weather, thresholds) {
     const bucket = bucketFromText(weather.condition);
     if (bucket !== "Raining") return { bucket, label: bucket };
-    const intensity = intensityFromMm(weather.rainfall);
+    const intensity = intensityFromMm(weather.rainfall, thresholds);
     return { bucket, label: `${intensity} Rain`, intensity };
   }
 
@@ -73,9 +76,13 @@ const Weather = (() => {
     });
   }
 
-  function format(weather) {
+  /** @param {object} weather - raw cached weather for one store
+   *  @param {{lowMax:number, moderateMax:number, highMax:number}} [thresholds]
+   *  - the current configurable mm bands from state.rainThresholds (falls
+   *    back to the meteorological defaults if not supplied). */
+  function format(weather, thresholds) {
     if (!weather) return null;
-    const { bucket, label } = classify(weather);
+    const { bucket, label } = classify(weather, thresholds);
     return {
       condition: label,
       icon: iconFor(bucket),
