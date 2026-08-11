@@ -34,7 +34,10 @@ const Weather = (() => {
    */
   function bucketFromText(conditionText) {
     const raw = (conditionText || "").trim().toLowerCase();
-    if (!raw.includes("possible")) {
+    // "Patchy" and "possible" are both scattered/probabilistic phrasing —
+    // never a reliable "it's raining at this exact point" observation, so
+    // they never count as Raining regardless of the measured figure.
+    if (!raw.includes("possible") && !raw.includes("patchy")) {
       if (raw.includes("thunder") || /rain|drizzle|shower|sleet|ice pellet/.test(raw)) return "Raining";
     }
     if (/mist|fog|haze|cloud|overcast|snow/.test(raw)) return "Cloudy";
@@ -53,9 +56,19 @@ const Weather = (() => {
     return "Low";
   }
 
+  /**
+   * Requires ACTUAL measured precipitation (> 0mm) to confirm Raining —
+   * the condition text alone isn't enough, no exceptions (including
+   * thunderstorm text) — a "Thunderstorm" or "Light rain" label with a
+   * genuine 0mm reading doesn't count; even a small measured amount
+   * (e.g. 0.2mm of real drizzle) does.
+   */
   function classify(weather, thresholds) {
     const bucket = bucketFromText(weather.condition);
     if (bucket !== "Raining") return { bucket, label: bucket };
+
+    if ((weather.rainfall ?? 0) <= 0) return { bucket: "Cloudy", label: "Cloudy" };
+
     const intensity = intensityFromMm(weather.rainfall, thresholds);
     return { bucket, label: `${intensity} Rain`, intensity };
   }
