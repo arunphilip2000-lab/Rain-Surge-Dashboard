@@ -63,15 +63,32 @@ const Weather = (() => {
    * genuine 0mm reading doesn't count; even a small measured amount
    * (e.g. 0.2mm of real drizzle) does.
    */
+  /**
+   * The measured rainfall (mm) is checked FIRST, not the condition text.
+   * Found from a real case: a store showed "Cloudy" as its condition
+   * text while PRECIP NOW genuinely read 1.0mm — the provider's summary
+   * label and its precipitation figure don't always agree, and the
+   * previous text-first design meant real measured rain got ignored
+   * whenever the label didn't happen to say a rain-type word. Now: any
+   * measured rainfall >= the configured minimum counts as Raining,
+   * regardless of the text. Only when the mm reading is BELOW that
+   * minimum does the text get consulted at all — and even then, a
+   * rain-type text with too little measured rain still correctly
+   * downgrades to Cloudy (never upgrades a real 0mm reading into Raining
+   * just because the label says "Light rain").
+   */
   function classify(weather, thresholds) {
+    const t = thresholds || DEFAULT_THRESHOLDS;
+    const rainfall = weather.rainfall ?? 0;
+
+    if (rainfall >= t.minRainfall) {
+      const intensity = intensityFromMm(rainfall, t);
+      return { bucket: "Raining", label: `${intensity} Rain`, intensity };
+    }
+
     const bucket = bucketFromText(weather.condition);
-    if (bucket !== "Raining") return { bucket, label: bucket };
-
-    const minRainfall = (thresholds || DEFAULT_THRESHOLDS).minRainfall ?? DEFAULT_THRESHOLDS.minRainfall;
-    if ((weather.rainfall ?? 0) < minRainfall) return { bucket: "Cloudy", label: "Cloudy" };
-
-    const intensity = intensityFromMm(weather.rainfall, thresholds);
-    return { bucket, label: `${intensity} Rain`, intensity };
+    if (bucket === "Raining") return { bucket: "Cloudy", label: "Cloudy" }; // text says rain, measured amount doesn't back it up
+    return { bucket, label: bucket };
   }
 
   function iconFor(bucket) {
