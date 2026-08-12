@@ -12,6 +12,23 @@ const Dashboard = (() => {
   let state = { stores: [], sessions: {}, weather: {} };
   let filters = { city: "ALL", status: "ALL", category: "ALL", rainStatus: "ALL", search: "" };
 
+  /**
+   * Always creating `new bootstrap.Offcanvas(el)` on every click builds a
+   * SEPARATE instance each time, and each one adds its own dark backdrop
+   * div to the page. Click the same (or different) panel-opening button
+   * more than once before the previous one finishes closing, and the
+   * backdrops stack — multiple semi-transparent overlays layered on top
+   * of each other can visually add up to solid black, only clearing as
+   * each stacked instance gets dismissed one at a time. This reuses the
+   * existing instance for a given element instead of creating a new one.
+   */
+  function showOffcanvas(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const instance = bootstrap.Offcanvas.getInstance(el) || new bootstrap.Offcanvas(el);
+    instance.show();
+  }
+
   // ---------------------------------------------------------------- utils
   function money(n) {
     return `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
@@ -378,7 +395,7 @@ const Dashboard = (() => {
           )
           .join("")
       : `<div class="p-3 text-muted small">Nothing to show right now.</div>`;
-    new bootstrap.Offcanvas(document.getElementById("metricDrilldownOffcanvas")).show();
+    showOffcanvas("metricDrilldownOffcanvas");
   }
 
   /** Fetches and renders store-wise + city-wise total Rain Surge amounts
@@ -390,7 +407,7 @@ const Dashboard = (() => {
     const list = document.getElementById("metricDrilldownList");
     title.textContent = "Total Rain Surge — Today";
     list.innerHTML = `<div class="p-3 text-muted small">Loading…</div>`;
-    new bootstrap.Offcanvas(document.getElementById("metricDrilldownOffcanvas")).show();
+    showOffcanvas("metricDrilldownOffcanvas");
 
     try {
       const report = await GoogleSheetsAPI.getStoreCityTotals();
@@ -596,7 +613,7 @@ const Dashboard = (() => {
     });
 
     document.getElementById("activeStoreCountBtn")?.addEventListener("click", () => {
-      new bootstrap.Offcanvas(document.getElementById("activeStoreOffcanvas")).show();
+      showOffcanvas("activeStoreOffcanvas");
     });
     document.getElementById("activeStoreList")?.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-scroll-to]");
@@ -622,12 +639,12 @@ const Dashboard = (() => {
 
     document.getElementById("btnAccessLog")?.addEventListener("click", () => {
       loadAccessLog();
-      new bootstrap.Offcanvas(document.getElementById("accessLogOffcanvas")).show();
+      showOffcanvas("accessLogOffcanvas");
     });
 
     document.getElementById("btnDailyReport")?.addEventListener("click", () => {
       loadDailyReport();
-      new bootstrap.Offcanvas(document.getElementById("dailyReportOffcanvas")).show();
+      showOffcanvas("dailyReportOffcanvas");
     });
   }
 
