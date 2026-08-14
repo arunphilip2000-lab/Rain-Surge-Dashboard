@@ -292,6 +292,7 @@ const Dashboard = (() => {
               <small class="text-muted">${store.city.toUpperCase()} · ${store.storeCode}</small>
             </div>
             <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" data-action="verify" data-store="${store.storeCode}" title="Re-check this store's weather right now">🔍</button>
               <button class="btn btn-sm btn-outline-secondary py-0 px-2" data-action="buzz" data-store="${store.storeCode}" title="Ring buzzer for 10 seconds">🔔</button>
               <span class="badge ${isActive ? "bg-success" : "bg-secondary"}">${isActive ? "ACTIVE" : "INACTIVE"}</span>
             </div>
@@ -632,6 +633,23 @@ const Dashboard = (() => {
       if (btn.dataset.action === "buzz") {
         ringBuzzer();
         notify("warning", `Buzzer manually triggered for ${storeCode} — ringing 10 seconds.`);
+      }
+      if (btn.dataset.action === "verify") {
+        btn.disabled = true;
+        btn.textContent = "⏳";
+        GoogleSheetsAPI.getWeather(storeCode)
+          .then((w) => {
+            const label = Weather.format(w, state.rainThresholds)?.condition || w.condition;
+            notify(
+              "info",
+              `${storeCode} re-checked just now: ${label}, ${(w.rainfall ?? 0).toFixed(1)}mm, ${w.condition}. If this doesn't match what you see, use manual Rain Surge ON/OFF to override.`
+            );
+          })
+          .catch((err) => notify("danger", `Verify failed for ${storeCode}: ${err.message}`))
+          .finally(() => {
+            btn.disabled = false;
+            btn.textContent = "🔍";
+          });
       }
     });
 
