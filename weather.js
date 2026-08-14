@@ -104,8 +104,8 @@ const Weather = (() => {
   function parseHourlySeries(raw) {
     if (!raw) return [];
     return raw.split("|").filter(Boolean).map((pair) => {
-      const [hour, chance] = pair.split(":");
-      return { hour: Number(hour), chance: Number(chance) };
+      const [hour, chance, intensity] = pair.split(":");
+      return { hour: Number(hour), chance: Number(chance), intensity: intensity || "" };
     });
   }
 
@@ -151,8 +151,8 @@ const Weather = (() => {
    * matches the "buzzer rings for 10 seconds" spec rather than looping
    * indefinitely.
    */
-  function checkRainStopped(store, weather) {
-    const stopped = !weather || bucketFromText(weather.condition) !== "Raining";
+  function checkRainStopped(store, weather, thresholds, isAutoSession) {
+    const stopped = !weather || classify(weather, thresholds).bucket !== "Raining";
     const card = document.querySelector(`[data-store-code="${store.storeCode}"]`);
     if (!card) return;
 
@@ -164,8 +164,9 @@ const Weather = (() => {
         banner.className = "rain-stop-banner";
         card.prepend(banner);
       }
-      banner.textContent =
-        "⚠ Rain has stopped. Please contact the respective TL and turn OFF Rain Surge.";
+      banner.textContent = isAutoSession
+        ? "⚠ Rain has stopped — this store will auto-turn off shortly, no action needed."
+        : "⚠ Rain has stopped. Please contact the respective TL and turn OFF Rain Surge.";
     } else {
       card.classList.remove("rain-stopped-alert");
       card.querySelector(".rain-stop-banner")?.remove();
