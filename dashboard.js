@@ -255,16 +255,18 @@ const Dashboard = (() => {
   // ----------------------------------------------------------- store cards
   function hourlyBarsHtml(hourlySeries) {
     if (!hourlySeries || !hourlySeries.length) return "";
+    const intensityClass = (i) => (i ? ` intensity-${i.toLowerCase()}` : "");
     return `
       <div class="hourly-forecast">
-        <div class="hourly-forecast-label">RAIN CHANCE, NEXT HOURS</div>
+        <div class="hourly-forecast-label">RAIN CHANCE &amp; INTENSITY, NEXT HOURS</div>
         <div class="hourly-bars">
           ${hourlySeries
             .map(
               (h) => `
             <div class="hourly-bar-col">
               <div class="hourly-bar-pct">${h.chance}</div>
-              <div class="hourly-bar-track"><div class="hourly-bar-fill" style="height:${Math.max(4, h.chance)}%"></div></div>
+              <div class="hourly-bar-track"><div class="hourly-bar-fill${intensityClass(h.intensity)}" style="height:${Math.max(4, h.chance)}%"></div></div>
+              <div class="hourly-bar-intensity">${h.intensity || "—"}</div>
             </div>`
             )
             .join("")}
@@ -370,7 +372,12 @@ const Dashboard = (() => {
       const session = state.sessions[store.storeCode];
       if (session?.status === "ACTIVE") {
         Timer.start({ ...session, storeCode: store.storeCode });
-        Weather.checkRainStopped({ ...store, status: "ACTIVE" }, state.weather[store.storeCode]);
+        Weather.checkRainStopped(
+          { ...store, status: "ACTIVE" },
+          state.weather[store.storeCode],
+          state.rainThresholds,
+          session.employeeName === "System (Auto)"
+        );
       } else {
         Timer.stop(store.storeCode);
       }
