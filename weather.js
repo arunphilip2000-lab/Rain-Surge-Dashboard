@@ -37,21 +37,23 @@ const Weather = (() => {
     // "Patchy" and "possible" are both scattered/probabilistic phrasing —
     // never a reliable "it's raining at this exact point" observation, so
     // they never count as Raining regardless of the measured figure.
-    if (!raw.includes("possible") && !raw.includes("patchy")) {
-      if (raw.includes("thunder") || /rain|drizzle|shower|sleet|ice pellet/.test(raw)) return "Raining";
+    // Still shown as Cloudy, though — it's not actually clear/sunny
+    // weather, just not confirmed-raining.
+    if (raw.includes("possible") || raw.includes("patchy")) {
+      return /clear|sunny/.test(raw) ? "Clear" : "Cloudy";
     }
+    if (raw.includes("thunder") || /rain|drizzle|shower|sleet|ice pellet/.test(raw)) return "Raining";
     if (/mist|fog|haze|cloud|overcast|snow/.test(raw)) return "Cloudy";
     if (/clear|sunny/.test(raw)) return "Clear";
     return "Clear";
   }
 
-  const DEFAULT_THRESHOLDS = { lowMax: 2.5, moderateMax: 7.5, highMax: 35, minRainfall: 0.5 };
+  const DEFAULT_THRESHOLDS = { lowMax: 1.0, moderateMax: 3.5, minRainfall: 0.1 };
 
   function intensityFromMm(mm, thresholds) {
     const t = thresholds || DEFAULT_THRESHOLDS;
     const rainfall = mm ?? 0;
-    if (rainfall > t.highMax) return "Extreme";
-    if (rainfall > t.moderateMax) return "High";
+    if (rainfall > t.moderateMax) return "Heavy";
     if (rainfall > t.lowMax) return "Moderate";
     return "Low";
   }
@@ -108,7 +110,7 @@ const Weather = (() => {
   }
 
   /** @param {object} weather - raw cached weather for one store
-   *  @param {{lowMax:number, moderateMax:number, highMax:number}} [thresholds]
+   *  @param {{lowMax:number, moderateMax:number}} [thresholds]
    *  - the current configurable mm bands from state.rainThresholds (falls
    *    back to the meteorological defaults if not supplied). */
   const AREA_SOURCE_LABEL = { N: "north", S: "south", E: "east", W: "west" };
