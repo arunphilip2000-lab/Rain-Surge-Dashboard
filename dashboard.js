@@ -142,6 +142,10 @@ const Dashboard = (() => {
       const src = state.weather[s.storeCode]?.areaRainSource;
       return src && src !== "center";
     }).length;
+    const veryLightCount = state.stores.filter((s) => {
+      if (state.sessions[s.storeCode]?.status === "ACTIVE") return false; // already active — nothing to "check"
+      return Weather.format(state.weather[s.storeCode], Weather.resolveThresholds(state.rainThresholds, s.city))?.isVeryLight;
+    }).length;
 
     activeSessions.forEach((s) => {
       if (byCategory[s.category] !== undefined) byCategory[s.category]++;
@@ -159,6 +163,7 @@ const Dashboard = (() => {
     set("cardMediumRain", byCategory.MEDIUM);
     set("cardHeavyRain", byCategory.HEAVY);
     set("cardNearbyRain", nearbyRainCount);
+    set("cardVeryLight", veryLightCount);
     set("cardRunningCost", money(runningCost));
     set("cardLastWeatherUpdate", state.lastWeatherUpdate || "—");
 
@@ -279,7 +284,7 @@ const Dashboard = (() => {
 
   function storeCardHtml(store) {
     const session = state.sessions[store.storeCode];
-    const w = Weather.format(state.weather[store.storeCode], state.rainThresholds);
+    const w = Weather.format(state.weather[store.storeCode], Weather.resolveThresholds(state.rainThresholds, store.city));
     const isActive = session?.status === "ACTIVE";
     const category = session?.category || "";
     const rate = CONFIG.RAIN_CATEGORIES[category]?.rate ?? "";
@@ -375,7 +380,7 @@ const Dashboard = (() => {
         Weather.checkRainStopped(
           { ...store, status: "ACTIVE" },
           state.weather[store.storeCode],
-          state.rainThresholds,
+          Weather.resolveThresholds(state.rainThresholds, store.city),
           session.employeeName === "System (Auto)"
         );
       } else {
@@ -512,6 +517,23 @@ const Dashboard = (() => {
       });
   }
 
+  function storesByVeryLightRain() {
+    return state.stores
+      .filter((s) => {
+        if (state.sessions[s.storeCode]?.status === "ACTIVE") return false;
+        return Weather.format(state.weather[s.storeCode], Weather.resolveThresholds(state.rainThresholds, s.city))?.isVeryLight;
+      })
+      .map((s) => {
+        const raw = state.weather[s.storeCode]?.rainfall ?? 0;
+        return {
+          storeCode: s.storeCode,
+          storeName: s.storeName,
+          city: s.city,
+          meta: `${raw.toFixed(2)} mm — below auto-trigger threshold, review manually`,
+        };
+      });
+  }
+
   function renderActiveList(activeSessions) {
     const list = document.getElementById("activeStoreList");
     const countBtn = document.getElementById("activeStoreCountBtn");
@@ -582,6 +604,9 @@ const Dashboard = (() => {
     document.getElementById("cardBoxNearbyRain")?.addEventListener("click", () =>
       showMetricDrilldown("Nearby Rain (3km) — Not At The Exact Store", storesByNearbyRain())
     );
+    document.getElementById("cardBoxVeryLight")?.addEventListener("click", () =>
+      showMetricDrilldown("Very Light Rain — Below Threshold, Review Manually", storesByVeryLightRain())
+    );
     document.getElementById("cardBoxCost")?.addEventListener("click", () =>
       showMetricDrilldown("Cost Breakdown — Active Stores", storesByCostDesc())
     );
@@ -646,7 +671,8 @@ const Dashboard = (() => {
         btn.textContent = "⏳";
         GoogleSheetsAPI.getWeather(storeCode)
           .then((w) => {
-            const label = Weather.format(w, state.rainThresholds)?.condition || w.condition;
+            const storeObj = state.stores.find((s) => s.storeCode === storeCode);
+            const label = Weather.format(w, Weather.resolveThresholds(state.rainThresholds, storeObj?.city))?.condition || w.condition;
             notify(
               "info",
               `${storeCode} re-checked just now: ${label}, ${(w.rainfall ?? 0).toFixed(1)}mm, ${w.condition}. If this doesn't match what you see, use manual Rain Surge ON/OFF to override.`
