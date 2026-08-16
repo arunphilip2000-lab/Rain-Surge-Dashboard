@@ -50,6 +50,16 @@ const Weather = (() => {
 
   const DEFAULT_THRESHOLDS = { lowMax: 1.0, moderateMax: 3.5, minRainfall: 0.1 };
 
+  /** rainThresholds from state is now {default, overrides: {City: {...}}}
+   *  — this picks the right flat threshold object for a given store's
+   *  city, falling back to the global default (or the hardcoded default
+   *  above if state.rainThresholds itself isn't available yet, e.g.
+   *  during initial load or demo mode). */
+  function resolveThresholds(rainThresholds, city) {
+    if (!rainThresholds) return DEFAULT_THRESHOLDS;
+    return (city && rainThresholds.overrides?.[city]) || rainThresholds.default || DEFAULT_THRESHOLDS;
+  }
+
   function intensityFromMm(mm, thresholds) {
     const t = thresholds || DEFAULT_THRESHOLDS;
     const rainfall = mm ?? 0;
@@ -88,6 +98,16 @@ const Weather = (() => {
       return { bucket: "Raining", label: `${intensity} Rain`, intensity };
     }
 
+    if (rainfall > 0) {
+      // Genuinely detected, but below the auto-trigger threshold — shown
+      // as its own distinct label so it's visible and promptable, without
+      // silently starting a billed session. bucket stays "Cloudy" (never
+      // "Raining"), so this can never affect the buzzer, auto Rain
+      // Surge, or anything else Raining-gated — purely a visual signal
+      // to manually check and decide.
+      return { bucket: "Cloudy", label: "Very Light Rain", isVeryLight: true };
+    }
+
     const bucket = bucketFromText(weather.condition);
     if (bucket === "Raining") return { bucket: "Cloudy", label: "Cloudy" }; // text says rain, measured amount doesn't back it up
     return { bucket, label: bucket };
@@ -122,18 +142,20 @@ const Weather = (() => {
 
   function format(weather, thresholds) {
     if (!weather) return null;
-    const { bucket, label } = classify(weather, thresholds);
+    const { bucket, label, isVeryLight } = classify(weather, thresholds);
+    const rainfallRaw = weather.rainfall ?? 0;
     return {
       condition: label,
       icon: iconFor(bucket),
       temperature: `${Math.round(weather.temperature ?? 0)}°C`,
       temperatureRaw: Math.round(weather.temperature ?? 0),
       humidity: `${Math.round(weather.humidity ?? 0)}%`,
-      rainfall: `${(weather.rainfall ?? 0).toFixed(1)} mm`,
+      rainfall: `${rainfallRaw.toFixed(rainfallRaw > 0 && rainfallRaw < 1 ? 2 : 1)} mm`,
       windSpeed: `${Math.round(weather.windSpeed ?? 0)} km/h`,
       cloudCover: `${Math.round(weather.cloudCover ?? 0)}%`,
       lastUpdated: weather.lastUpdated || null,
       isRaining: bucket === "Raining",
+      isVeryLight: !!isVeryLight,
       forecastNote: weather.forecastNote || null,
       rainChanceNow: weather.rainChanceNow ?? null,
       hourlySeries: parseHourlySeries(weather.hourlySeries),
@@ -173,5 +195,5 @@ const Weather = (() => {
     }
   }
 
-  return { format, checkRainStopped };
+  return { format, checkRainStopped, resolveThresholds };
 })();
